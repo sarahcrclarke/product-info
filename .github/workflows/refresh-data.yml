@@ -7,6 +7,11 @@ name: Refresh product data
 
 on:
   workflow_dispatch:      # "Run workflow" button in the Actions tab
+    inputs:
+      max:
+        description: "Max products to scrape (0 = all; small value for a quick test)"
+        required: false
+        default: "0"
   schedule:
     - cron: "17 6 * * 1"  # every Monday 06:17 UTC
 
@@ -30,7 +35,7 @@ jobs:
       - name: Scrape the public catalogue
         run: node scripts/scrape.mjs
         env:
-          BASE: https://www.katieloxton.com
+          MAX: ${{ github.event.inputs.max || '0' }}
           # Katie Loxton's CDN sends a very large response-header block; raise
           # Node's 16KB header cap so undici can parse it.
           NODE_OPTIONS: --max-http-header-size=262144

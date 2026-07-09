@@ -1,185 +1,227 @@
 #!/usr/bin/env node
 /**
- * Katie Loxton catalogue scraper.
+ * Katie Loxton catalogue scraper (Magento / public data).
  *
- * Katie Loxton runs on Shopify, which exposes a public, read-only products
- * feed at /products.json (paginated). This script walks every page, normalises
- * each product into the shape the dashboard expects, and writes data/products.json.
+ * katieloxton.com is a Magento store — no Shopify products.json — but its
+ * sitemap enumerates the catalogue and every product page carries JSON-LD
+ * (Product + BreadcrumbList). This walks the sitemap, fetches each product
+ * page, and reads the structured data into the shape the dashboard expects.
+ * Uses only publicly available pages. No dependencies (Node 18+ global fetch).
  *
- * Run it anywhere with open web access:
  *     node scripts/scrape.mjs
  *
- * Options (env vars):
- *     BASE=https://www.katieloxton.com   base store URL
- *     LIMIT=250                          products per page (Shopify max 250)
+ * Env:
+ *     SITEMAP      sitemap URL (default: the KL sitemap from robots.txt)
+ *     MAX          cap number of product pages (0 = all; use a small value to test)
+ *     CONCURRENCY  parallel requests (default 8)
  *
- * No dependencies — uses Node 18+ global fetch.
+ * Run with a raised header cap — KL's CDN sends very large headers:
+ *     NODE_OPTIONS=--max-http-header-size=262144 node scripts/scrape.mjs
  */
 import { writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const BASE = (process.env.BASE || "https://www.katieloxton.com").replace(/\/$/, "");
-const LIMIT = Number(process.env.LIMIT || 250);
+const SITEMAP = process.env.SITEMAP || "https://katieloxton.com/media/sitemaps/sitemap_kl.xml";
+const ORIGIN = new URL(SITEMAP).origin;
+const MAX = Number(process.env.MAX || 0);
+const CONCURRENCY = Number(process.env.CONCURRENCY || 8);
 const OUT = fileURLToPath(new URL("../data/products.json", import.meta.url));
 
-/* Map Shopify product_type / tags into the dashboard's top-level categories.
-   Tune this map after your first run by inspecting the raw product_type values
-   printed in the run summary. */
+const HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-GB,en;q=0.9",
+};
+const getText = async (url) => {
+  const r = await fetch(url, { headers: HEADERS, redirect: "follow" });
+  return { status: r.status, ok: r.ok, body: await r.text() };
+};
+
+/* ---- JSON-LD helpers ---- */
+function ldObjects(html) {
+  const out = [];
+  for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
+    let j; try { j = JSON.parse(m[1].trim()); } catch { continue; }
+    const stack = Array.isArray(j) ? [...j] : [j];
+    while (stack.length) {
+      const o = stack.pop();
+      if (o && typeof o === "object") {
+        out.push(o);
+        if (Array.isArray(o["@graph"])) stack.push(...o["@graph"]);
+      }
+    }
+  }
+  return out;
+}
+const typeOf = (o) => [].concat(o["@type"] || []).map(String);
+
+/* ---- category mapping (from breadcrumb top level + name) ---- */
 const CATEGORY_MAP = [
-  [/pouch/i,                         "Perfect Pouches"],
-  [/purse|wallet|card holder|coin/i, "Purses & Wallets"],
-  [/bag|tote|backpack|holdall|clutch|crossbody|cross body/i, "Bags"],
-  [/necklace|earring|bracelet|jewel|ring|pendant/i, "Jewellery"],
-  [/candle|diffuser|fragrance|home|wax|hand cream|frame|dish/i, "Home & Fragrance"],
-  [/gift|set|box|hamper/i,           "Gifts"],
-  [/scarf|sunglass|keyring|umbrella|hair|passport|travel|accessor/i, "Accessories"],
+  [/pouch/i, "Perfect Pouches"],
+  [/purse|wallet|card holder|cardholder|coin/i, "Purses & Wallets"],
+  [/bag|tote|backpack|holdall|clutch|cross.?body|weekend/i, "Bags"],
+  [/necklace|earring|bracelet|jewel|ring|pendant|anklet|charm/i, "Jewellery"],
+  [/home|candle|diffuser|fragrance|wax|hand cream|lotion|dish|frame|storage|mug|ceramic/i, "Home & Fragrance"],
+  [/gift|hamper|pamper|set\b/i, "Gifts"],
+  [/scarf|sunglass|keyring|umbrella|hair|passport|travel|hat|glove|accessor/i, "Accessories"],
 ];
-function categorise(p) {
-  const hay = `${p.product_type || ""} ${(p.tags || []).join(" ")} ${p.title}`;
+function categorise(name, crumbs) {
+  const top = crumbs[0] || "";
+  const hay = `${top} ${name}`;
   for (const [re, cat] of CATEGORY_MAP) if (re.test(hay)) return cat;
-  return p.product_type || "Other";
+  return top || "Other";
 }
 
-/* Derive the extra dimensions the dashboard uses. These read from Shopify
-   options/tags/title; tune the keyword lists once you've seen real data. */
-const OCCASION_MAP = [
-  [/\bmum\b|mother/i, "Mum"], [/bride|wedding|bridesmaid|hen\b/i, "Wedding"],
-  [/baby|christening/i, "New Baby"], [/best friend|friendship|bestie/i, "Best Friend"],
-  [/thank you|thanks/i, "Thank You"], [/birthday|birthstone/i, "Birthday"],
-  [/pamper|prosecco|treat|self.?care/i, "Treat / Self"], [/anniversary/i, "Anniversary"],
-];
-function occasionOf(p) {
-  const hay = `${p.title} ${(p.tags || []).join(" ")}`;
-  for (const [re, o] of OCCASION_MAP) if (re.test(hay)) return o;
-  return /gift|pouch/i.test(`${p.product_type} ${p.title}`) ? "Everyday Gifting" : "Everyday";
+/* ---- extra dimensions (best-effort, from name) ---- */
+const has = (t, ...w) => w.some((x) => t.toLowerCase().includes(x));
+function occasionOf(name) {
+  const t = name.toLowerCase();
+  if (has(t, "mum", "mother")) return "Mum";
+  if (has(t, "bride", "wedding", "bridesmaid", "hen ")) return "Wedding";
+  if (has(t, "baby", "christening")) return "New Baby";
+  if (has(t, "best friend", "friendship", "bestie")) return "Best Friend";
+  if (has(t, "thank you")) return "Thank You";
+  if (has(t, "birthday", "birthstone")) return "Birthday";
+  if (has(t, "pamper", "prosecco", "treat")) return "Treat / Self";
+  return "Everyday";
 }
-const MATERIAL_MAP = [
-  [/straw|basket|raffia/i, "Straw"], [/woven/i, "Woven"], [/candle|wax|melt/i, "Wax"],
-  [/diffuser|glass/i, "Glass"], [/ceramic|dish|frame|porcelain/i, "Ceramic"],
-  [/scarf|cotton|canvas/i, "Cotton"], [/sunglass|acetate/i, "Acetate"],
-  [/necklace|earring|bracelet|pendant|chain|hoop|stud|ring|metal|gold|silver/i, "Metal"],
-  [/leather/i, "Vegan Leather"],
-];
-function materialOf(p) {
-  const hay = `${p.title} ${p.product_type} ${(p.tags || []).join(" ")}`;
-  for (const [re, m] of MATERIAL_MAP) if (re.test(hay)) return m;
-  const cat = categorise(p);
+function materialOf(name, cat) {
+  const t = name.toLowerCase();
+  if (has(t, "straw", "basket", "raffia")) return "Straw";
+  if (has(t, "woven")) return "Woven";
+  if (has(t, "candle", "wax", "melt")) return "Wax";
+  if (has(t, "diffuser")) return "Glass";
+  if (has(t, "ceramic", "dish", "frame", "trinket")) return "Ceramic";
+  if (has(t, "scarf")) return "Cotton";
+  if (has(t, "sunglass")) return "Acetate";
+  if (has(t, "necklace", "earring", "bracelet", "pendant", "chain", "hoop", "ring", "charm")) return "Metal";
   if (cat === "Bags" || cat === "Purses & Wallets") return "Vegan Leather";
   if (cat === "Perfect Pouches") return "Cotton";
   return "Mixed";
 }
-const COLOUR_WORDS = ["Blush","Sage","Tan","Black","Gold","Cream","Navy","Pink","Silver","White",
-  "Grey","Gray","Green","Blue","Red","Brown","Tortoiseshell","Monochrome","Natural","Nude","Rose"];
-function colourOf(p) {
-  // Prefer a Shopify option named Colour/Color.
-  const opt = (p.options || []).find((o) => /colou?r/i.test(o.name));
-  if (opt && opt.values && opt.values.length) return opt.values[0];
-  const hay = `${p.title} ${(p.tags || []).join(" ")}`;
-  for (const w of COLOUR_WORDS) if (new RegExp(`\\b${w}\\b`, "i").test(hay)) return w === "Gray" ? "Grey" : w;
+const COLOUR_WORDS = ["Blush","Sage","Tan","Black","Gold","Cream","Navy","Pink","Silver","White","Grey","Green","Blue","Red","Brown","Tortoiseshell","Natural","Nude","Rose","Taupe","Mint","Lilac","Burgundy"];
+function colourOf(name, product) {
+  if (product && product.color) return String(product.color);
+  for (const w of COLOUR_WORDS) if (new RegExp(`\\b${w}\\b`, "i").test(name)) return w;
   return "Mixed";
 }
 
-function normalise(p) {
-  const variants = p.variants || [];
-  const prices = variants.map((v) => Number(v.price)).filter((n) => n > 0);
-  const price = prices.length ? Math.min(...prices) : 0;
-  const compareAt = Math.max(0, ...variants.map((v) => Number(v.compare_at_price) || 0));
-  const available = variants.some((v) => v.available);
-  return {
-    title: p.title,
-    handle: p.handle,
-    url: `${BASE}/products/${p.handle}`,
-    brand: p.vendor || "Katie Loxton",
-    category: categorise(p),
-    productType: p.product_type || "",
-    tags: p.tags || [],
-    vendor: p.vendor || "",
-    price,
-    compareAt: compareAt > price ? compareAt : 0,
-    available,
-    colour: colourOf(p),
-    occasion: occasionOf(p),
-    material: materialOf(p),
-    image: (p.images && p.images[0] && p.images[0].src) || null,
-    createdAt: (p.created_at || p.published_at || "").slice(0, 10) || null,
+/* ---- price / sale from Magento HTML (best effort) ---- */
+function pricesFromHtml(html) {
+  const amt = (type) => {
+    const m = html.match(new RegExp(`data-price-type="${type}"[^>]*data-price-amount="([\\d.]+)"`, "i"))
+      || html.match(new RegExp(`"${type}"\\s*:\\s*\\{[^}]*"amount"\\s*:\\s*"?([\\d.]+)`, "i"));
+    return m ? Number(m[1]) : null;
   };
+  return { final: amt("finalPrice"), old: amt("oldPrice") };
 }
 
-// Real browser-ish headers — many storefronts reject obvious bot User-Agents.
-const HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
-  "Accept": "application/json,text/html;q=0.9,*/*;q=0.8",
-  "Accept-Language": "en-GB,en;q=0.9",
-};
-
-async function fetchJson(url) {
-  const r = await fetch(url, { headers: HEADERS, redirect: "follow" });
-  const body = await r.text();
-  let json = null;
-  try { json = JSON.parse(body); } catch { /* not JSON */ }
-  return { status: r.status, ok: r.ok, json, body, server: r.headers.get("server") || "", ctype: r.headers.get("content-type") || "" };
+function offerPrice(product) {
+  let off = product.offers;
+  if (Array.isArray(off)) off = off[0];
+  if (!off) return { price: null, available: true };
+  const price = Number(off.price ?? off.lowPrice ?? off.highPrice);
+  const avail = off.availability ? /InStock/i.test(off.availability) : true;
+  return { price: Number.isFinite(price) ? price : null, available: avail };
 }
 
-/* Diagnostic: work out what platform the store is and which endpoint serves the
-   product feed, so we fail loudly with useful info instead of a bare error. */
-async function probe() {
-  console.log(`\n── Probing ${BASE} ──`);
-  const candidates = ["/products.json?limit=1", "/collections/all/products.json?limit=1", "/"];
-  for (const path of candidates) {
-    try {
-      const r = await fetchJson(BASE + path);
-      const shape = r.json ? (Array.isArray(r.json.products) ? `JSON products[]=${r.json.products.length}` : "JSON (no products[])") : `HTML ${r.body.length}b`;
-      const shopify = /shopify/i.test(r.server) || /cdn\.shopify/i.test(r.body) ? " [Shopify markers]" : "";
-      console.log(`  ${path.padEnd(38)} → ${r.status} ${r.ctype.split(";")[0]} · ${shape} · server=${r.server}${shopify}`);
-    } catch (e) {
-      console.log(`  ${path.padEnd(38)} → connection error: ${e.message}${e.cause?.code ? " (" + e.cause.code + ")" : ""}`);
-    }
-  }
-  console.log("──────────────────────\n");
-}
-
-async function fetchPage(page) {
-  const url = `${BASE}/products.json?limit=${LIMIT}&page=${page}`;
-  const r = await fetchJson(url);
-  if (!r.ok) throw new Error(`HTTP ${r.status} on page ${page} — ${url}`);
-  if (!r.json) throw new Error(`Non-JSON response on page ${page} (content-type ${r.ctype}) — the store may not expose a Shopify products.json`);
-  return r.json.products || [];
+/* ---- main ---- */
+async function pool(items, worker, concurrency) {
+  const results = []; let i = 0;
+  const runners = Array.from({ length: concurrency }, async () => {
+    while (i < items.length) { const idx = i++; results[idx] = await worker(items[idx], idx); }
+  });
+  await Promise.all(runners);
+  return results;
 }
 
 async function main() {
-  await probe();
-  console.log(`Scraping ${BASE}/products.json …`);
-  const products = [];
-  for (let page = 1; page <= 200; page++) {
-    const batch = await fetchPage(page);
-    if (!batch.length) break;
-    products.push(...batch);
-    process.stdout.write(`  page ${page}: ${batch.length} (total ${products.length})\r`);
-  }
+  console.log(`Fetching sitemap ${SITEMAP} …`);
+  const sm = await getText(SITEMAP);
+  if (!sm.ok) throw new Error(`sitemap HTTP ${sm.status}`);
+  const entries = [...sm.body.matchAll(/<url>([\s\S]*?)<\/url>/gi)].map((m) => {
+    const loc = (m[1].match(/<loc>\s*([^<\s]+)\s*<\/loc>/i) || [])[1];
+    const lastmod = (m[1].match(/<lastmod>\s*([^<\s]+)\s*<\/lastmod>/i) || [])[1] || null;
+    return loc ? { loc, lastmod } : null;
+  }).filter(Boolean);
+
+  // Drop obvious category / CMS pages to cut wasted fetches; keep the rest and
+  // confirm each is a product via its JSON-LD.
+  const KNOWN_CATS = /^(bags|accessories|jewellery|home|gifts|travel|womenswear|sale|new-in|archive|collections|mothers-day|christmas|brand|about|contact|blog|stores|catalog\/category)(\/|$)/i;
+  let candidates = entries.filter((e) => {
+    const path = new URL(e.loc).pathname.replace(/^\//, "");
+    if (/^catalog\/category\//i.test(path)) return false;
+    if (KNOWN_CATS.test(path)) return false;
+    return true;
+  });
+  if (MAX > 0) candidates = candidates.slice(0, MAX);
+  console.log(`${entries.length} sitemap URLs → ${candidates.length} product candidates (fetching with concurrency ${CONCURRENCY})…`);
+
+  let done = 0, products = [];
+  await pool(candidates, async (e) => {
+    let r; try { r = await getText(e.loc); } catch { return; }
+    done++;
+    if (done % 100 === 0) process.stdout.write(`  fetched ${done}/${candidates.length}, products ${products.length}\r`);
+    if (!r.ok) return;
+    const objs = ldObjects(r.body);
+    const product = objs.find((o) => typeOf(o).includes("Product"));
+    if (!product) return;
+    const crumbsObj = objs.find((o) => typeOf(o).includes("BreadcrumbList"));
+    const crumbs = crumbsObj && Array.isArray(crumbsObj.itemListElement)
+      ? crumbsObj.itemListElement.map((el) => (el.name || (el.item && el.item.name) || "")).filter((n) => n && !/^home$/i.test(n))
+      : [];
+    crumbs.pop(); // last crumb is the product itself
+    const name = product.name || "";
+    const cat = categorise(name, crumbs);
+    const { price: ldPrice, available } = offerPrice(product);
+    const { final, old } = pricesFromHtml(r.body);
+    const price = final ?? ldPrice ?? 0;
+    const compareAt = old && old > price ? old : 0;
+    const image = Array.isArray(product.image) ? product.image[0] : product.image || null;
+    products.push({
+      title: name,
+      handle: new URL(e.loc).pathname.replace(/^\//, "").replace(/\/$/, ""),
+      url: e.loc,
+      brand: (product.brand && (product.brand.name || product.brand)) || "Katie Loxton",
+      category: cat,
+      breadcrumb: crumbs.join(" › "),
+      sku: product.sku || null,
+      price,
+      compareAt,
+      available,
+      colour: colourOf(name, product),
+      occasion: occasionOf(name),
+      material: materialOf(name, cat),
+      createdAt: null,          // Magento pages don't expose created date; see /new-in for newness
+      updatedAt: e.lastmod,
+      image,
+    });
+  }, CONCURRENCY);
   console.log("");
 
-  const normalised = products.map(normalise).filter((p) => p.price > 0);
+  const clean = products.filter((p) => p.price > 0);
   const out = {
     generatedAt: new Date().toISOString().slice(0, 10),
-    source: BASE,
+    source: ORIGIN,
+    platform: "magento",
     currency: "GBP",
-    brands: [...new Set(normalised.map((p) => p.brand))].sort(),
-    count: normalised.length,
-    products: normalised,
+    brands: [...new Set(clean.map((p) => p.brand))].sort(),
+    count: clean.length,
+    products: clean,
   };
   await mkdir(dirname(OUT), { recursive: true });
-  await writeFile(OUT, JSON.stringify(out, null, 0));
+  await writeFile(OUT, JSON.stringify(out));
 
-  // Summary — useful for tuning CATEGORY_MAP.
-  const byCat = {};
-  for (const p of normalised) byCat[p.category] = (byCat[p.category] || 0) + 1;
-  const types = [...new Set(products.map((p) => p.product_type).filter(Boolean))].sort();
-  console.log(`\nWrote ${normalised.length} products → data/products.json`);
-  console.log("\nBy category:");
-  Object.entries(byCat).sort((a, b) => b[1] - a[1]).forEach(([c, n]) => console.log(`  ${String(n).padStart(4)}  ${c}`));
-  console.log(`\nRaw Shopify product_type values seen (tune CATEGORY_MAP if any land in "Other"):`);
-  console.log("  " + types.join(", "));
+  // Summary
+  const byCat = {}; for (const p of clean) byCat[p.category] = (byCat[p.category] || 0) + 1;
+  const onSale = clean.filter((p) => p.compareAt > p.price).length;
+  const oos = clean.filter((p) => !p.available).length;
+  const prices = clean.map((p) => p.price).sort((a, b) => a - b);
+  console.log(`\nWrote ${clean.length} products → data/products.json`);
+  console.log(`  price £${prices[0]}–£${prices[prices.length - 1]}, on sale ${onSale}, out of stock ${oos}`);
+  console.log("  by category:");
+  Object.entries(byCat).sort((a, b) => b[1] - a[1]).forEach(([c, n]) => console.log(`    ${String(n).padStart(4)}  ${c}`));
 }
 
-main().catch((e) => { console.error("\nScrape failed:", e.message); process.exit(1); });
+main().catch((e) => { console.error("\nScrape failed:", e.message, e.cause?.code || ""); process.exit(1); });
