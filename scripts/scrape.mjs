@@ -106,15 +106,49 @@ function normalise(p) {
   };
 }
 
+// Real browser-ish headers — many storefronts reject obvious bot User-Agents.
+const HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+  "Accept": "application/json,text/html;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-GB,en;q=0.9",
+};
+
+async function fetchJson(url) {
+  const r = await fetch(url, { headers: HEADERS, redirect: "follow" });
+  const body = await r.text();
+  let json = null;
+  try { json = JSON.parse(body); } catch { /* not JSON */ }
+  return { status: r.status, ok: r.ok, json, body, server: r.headers.get("server") || "", ctype: r.headers.get("content-type") || "" };
+}
+
+/* Diagnostic: work out what platform the store is and which endpoint serves the
+   product feed, so we fail loudly with useful info instead of a bare error. */
+async function probe() {
+  console.log(`\n── Probing ${BASE} ──`);
+  const candidates = ["/products.json?limit=1", "/collections/all/products.json?limit=1", "/"];
+  for (const path of candidates) {
+    try {
+      const r = await fetchJson(BASE + path);
+      const shape = r.json ? (Array.isArray(r.json.products) ? `JSON products[]=${r.json.products.length}` : "JSON (no products[])") : `HTML ${r.body.length}b`;
+      const shopify = /shopify/i.test(r.server) || /cdn\.shopify/i.test(r.body) ? " [Shopify markers]" : "";
+      console.log(`  ${path.padEnd(38)} → ${r.status} ${r.ctype.split(";")[0]} · ${shape} · server=${r.server}${shopify}`);
+    } catch (e) {
+      console.log(`  ${path.padEnd(38)} → connection error: ${e.message}${e.cause?.code ? " (" + e.cause.code + ")" : ""}`);
+    }
+  }
+  console.log("──────────────────────\n");
+}
+
 async function fetchPage(page) {
   const url = `${BASE}/products.json?limit=${LIMIT}&page=${page}`;
-  const r = await fetch(url, { headers: { "User-Agent": "kl-product-intelligence/1.0" } });
+  const r = await fetchJson(url);
   if (!r.ok) throw new Error(`HTTP ${r.status} on page ${page} — ${url}`);
-  const json = await r.json();
-  return json.products || [];
+  if (!r.json) throw new Error(`Non-JSON response on page ${page} (content-type ${r.ctype}) — the store may not expose a Shopify products.json`);
+  return r.json.products || [];
 }
 
 async function main() {
+  await probe();
   console.log(`Scraping ${BASE}/products.json …`);
   const products = [];
   for (let page = 1; page <= 200; page++) {
