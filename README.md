@@ -65,9 +65,11 @@ After the first run, check the printed summary of raw Shopify `product_type` val
 | `data/products.json` | Live catalogue (created by the scraper; falls back to the built-in sample) |
 | `manifest.webmanifest`, `sw.js`, `icon.svg` | PWA install + offline plumbing |
 
-**Data model** (per product): `title, category, price, compareAt, available, onSale, discountPct,
-bracket, url, image`. Charts derive everything from this, so pointing it at a competitor's Shopify
-store later is mostly a matter of changing `BASE` in the scraper.
+**Data model** (per product): `title, brand, category, price, compareAt, available, onSale,
+discountPct, bracket, occasion, colour, material, createdAt (→ newness), url, image`. Charts derive
+everything from this, and the app is **multi-brand aware** — add a competitor's products (with their
+own `brand`) and a brand filter appears automatically, so round 2 is mostly a matter of changing
+`BASE` in the scraper and merging the outputs.
 
 The colour system is a colourblind-safe categorical palette (validated in both light and dark
 themes) tuned to Katie Loxton's brand — dusky rose, sage, warm neutrals and gold.

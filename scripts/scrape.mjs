@@ -41,6 +41,45 @@ function categorise(p) {
   return p.product_type || "Other";
 }
 
+/* Derive the extra dimensions the dashboard uses. These read from Shopify
+   options/tags/title; tune the keyword lists once you've seen real data. */
+const OCCASION_MAP = [
+  [/\bmum\b|mother/i, "Mum"], [/bride|wedding|bridesmaid|hen\b/i, "Wedding"],
+  [/baby|christening/i, "New Baby"], [/best friend|friendship|bestie/i, "Best Friend"],
+  [/thank you|thanks/i, "Thank You"], [/birthday|birthstone/i, "Birthday"],
+  [/pamper|prosecco|treat|self.?care/i, "Treat / Self"], [/anniversary/i, "Anniversary"],
+];
+function occasionOf(p) {
+  const hay = `${p.title} ${(p.tags || []).join(" ")}`;
+  for (const [re, o] of OCCASION_MAP) if (re.test(hay)) return o;
+  return /gift|pouch/i.test(`${p.product_type} ${p.title}`) ? "Everyday Gifting" : "Everyday";
+}
+const MATERIAL_MAP = [
+  [/straw|basket|raffia/i, "Straw"], [/woven/i, "Woven"], [/candle|wax|melt/i, "Wax"],
+  [/diffuser|glass/i, "Glass"], [/ceramic|dish|frame|porcelain/i, "Ceramic"],
+  [/scarf|cotton|canvas/i, "Cotton"], [/sunglass|acetate/i, "Acetate"],
+  [/necklace|earring|bracelet|pendant|chain|hoop|stud|ring|metal|gold|silver/i, "Metal"],
+  [/leather/i, "Vegan Leather"],
+];
+function materialOf(p) {
+  const hay = `${p.title} ${p.product_type} ${(p.tags || []).join(" ")}`;
+  for (const [re, m] of MATERIAL_MAP) if (re.test(hay)) return m;
+  const cat = categorise(p);
+  if (cat === "Bags" || cat === "Purses & Wallets") return "Vegan Leather";
+  if (cat === "Perfect Pouches") return "Cotton";
+  return "Mixed";
+}
+const COLOUR_WORDS = ["Blush","Sage","Tan","Black","Gold","Cream","Navy","Pink","Silver","White",
+  "Grey","Gray","Green","Blue","Red","Brown","Tortoiseshell","Monochrome","Natural","Nude","Rose"];
+function colourOf(p) {
+  // Prefer a Shopify option named Colour/Color.
+  const opt = (p.options || []).find((o) => /colou?r/i.test(o.name));
+  if (opt && opt.values && opt.values.length) return opt.values[0];
+  const hay = `${p.title} ${(p.tags || []).join(" ")}`;
+  for (const w of COLOUR_WORDS) if (new RegExp(`\\b${w}\\b`, "i").test(hay)) return w === "Gray" ? "Grey" : w;
+  return "Mixed";
+}
+
 function normalise(p) {
   const variants = p.variants || [];
   const prices = variants.map((v) => Number(v.price)).filter((n) => n > 0);
@@ -51,6 +90,7 @@ function normalise(p) {
     title: p.title,
     handle: p.handle,
     url: `${BASE}/products/${p.handle}`,
+    brand: p.vendor || "Katie Loxton",
     category: categorise(p),
     productType: p.product_type || "",
     tags: p.tags || [],
@@ -58,8 +98,11 @@ function normalise(p) {
     price,
     compareAt: compareAt > price ? compareAt : 0,
     available,
+    colour: colourOf(p),
+    occasion: occasionOf(p),
+    material: materialOf(p),
     image: (p.images && p.images[0] && p.images[0].src) || null,
-    createdAt: p.created_at || null,
+    createdAt: (p.created_at || p.published_at || "").slice(0, 10) || null,
   };
 }
 
@@ -87,6 +130,7 @@ async function main() {
     generatedAt: new Date().toISOString().slice(0, 10),
     source: BASE,
     currency: "GBP",
+    brands: [...new Set(normalised.map((p) => p.brand))].sort(),
     count: normalised.length,
     products: normalised,
   };

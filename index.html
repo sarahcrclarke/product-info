@@ -134,7 +134,7 @@ header.top{
 .filters .count b{color:var(--ink); font-variant-numeric:tabular-nums}
 
 /* ---------- KPI row ---------- */
-.kpis{display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin:6px 0 20px}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:6px 0 20px}
 .kpi{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 15px; box-shadow:var(--shadow); position:relative; overflow:hidden}
 .kpi.click{cursor:pointer; transition:transform .12s, border-color .12s}
 .kpi.click:hover{transform:translateY(-2px); border-color:var(--line-strong)}
@@ -220,6 +220,11 @@ header.top{
 .prod .price .now{font-size:15px; font-weight:700}
 .prod .price .was{font-size:12px; color:var(--ink-3); text-decoration:line-through}
 .prod .price .now.sale{color:var(--accent-ink)}
+.prod .meta{display:flex; align-items:center; gap:7px; font-size:11px; color:var(--ink-3)}
+.prod .meta .swatch{width:10px;height:10px;border-radius:50%;border:1px solid var(--line-strong); flex:0 0 auto}
+.prod .new-badge{position:absolute; top:8px; right:8px; background:var(--good); color:#fff; font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; letter-spacing:.04em}
+.field[hidden]{display:none}
+.swatch-inline{display:inline-block; width:10px;height:10px;border-radius:50%;border:1px solid var(--line-strong); vertical-align:middle; margin-right:5px}
 
 .empty{text-align:center; padding:50px 20px; color:var(--ink-3)}
 .viewtoggle{display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; margin-left:auto}
@@ -287,14 +292,19 @@ footer a{color:var(--accent-ink)}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       <input id="q" type="search" placeholder="Search products…" autocomplete="off" />
     </label>
+    <label class="field" id="brandField" hidden><select id="fBrand"><option value="">All brands</option></select></label>
     <label class="field"><select id="fCat"><option value="">All categories</option></select></label>
     <label class="field"><select id="fBracket"><option value="">All prices</option></select></label>
+    <label class="field"><select id="fOccasion"><option value="">All occasions</option></select></label>
+    <label class="field"><select id="fColour"><option value="">All colours</option></select></label>
+    <label class="field"><select id="fMaterial"><option value="">All materials</option></select></label>
     <label class="field"><select id="fStock">
       <option value="">All availability</option>
       <option value="in">In stock</option>
       <option value="out">Out of stock</option>
     </select></label>
     <label class="toggle"><input type="checkbox" id="fSale" /> On sale only</label>
+    <label class="toggle"><input type="checkbox" id="fNew" /> New in</label>
     <button class="btn-reset" id="reset">Reset</button>
     <span class="count"><b id="shownN">0</b> of <b id="totalN">0</b> products</span>
   </div>
@@ -330,6 +340,21 @@ footer a{color:var(--accent-ink)}
       <div class="desc">In stock vs out of stock by category — watch for gaps in key lines.</div>
       <div id="availChart"></div>
     </div>
+    <div class="card">
+      <h2>By gifting occasion</h2>
+      <div class="desc">The range cut by who it's for — Katie Loxton's signature lens. Click to filter.</div>
+      <div class="bars" id="occBars"></div>
+    </div>
+    <div class="card">
+      <h2>Colour palette</h2>
+      <div class="desc">How the range is weighted across colourways.</div>
+      <div class="bars" id="colBars"></div>
+    </div>
+    <div class="card span2">
+      <h2>Newness — added over time</h2>
+      <div class="desc">How fresh the range is. Click a band to see those styles.</div>
+      <div class="vbars" id="newBars"></div>
+    </div>
   </div>
 
   <!-- Products -->
@@ -349,59 +374,7 @@ footer a{color:var(--accent-ink)}
 
 <!-- Seed sample data: [title, category, price, compareAt(0=none), available(1/0)] -->
 <script type="application/json" id="seed">
-{"generatedAt":"2026-07-09","source":"sample","currency":"GBP","products":[
-["Kayla Quilted Cross Body Bag","Bags",59.99,0,1],
-["Fern Woven Tote Bag","Bags",74.99,0,1],
-["Loua Boxy Grab Bag","Bags",54.99,74.99,1],
-["Celine Backpack","Bags",89.99,0,0],
-["Aria Shoulder Bag","Bags",64.99,0,1],
-["Weekend Holdall","Bags",84.99,0,1],
-["Effie Bucket Bag","Bags",49.99,0,1],
-["Mila Mini Cross Body","Bags",44.99,0,1],
-["Demi Structured Handbag","Bags",69.99,89.99,1],
-["Isla Straw Basket Bag","Bags",39.99,0,0],
-["Birdie Large Fold-Out Purse","Purses & Wallets",34.99,0,1],
-["Casey Slim Card Holder","Purses & Wallets",24.99,0,1],
-["Alexa Coin Purse","Purses & Wallets",22.99,0,1],
-["Fold-Out Travel Wallet","Purses & Wallets",39.99,0,1],
-["Zip Around Matinee Purse","Purses & Wallets",34.99,44.99,1],
-["Everyday Card Holder","Purses & Wallets",19.99,0,1],
-["Set of 3 Cosmetic Bags","Accessories",29.99,0,1],
-["Wash Bag - Blush","Accessories",29.99,0,1],
-["Tortoiseshell Sunglasses","Accessories",34.99,0,1],
-["Blanket Scarf - Sage","Accessories",29.99,39.99,1],
-["Bee Keyring Charm","Accessories",9.99,0,1],
-["Card Holder Keyring","Accessories",14.99,0,1],
-["Travel Pouch Set","Accessories",24.99,0,0],
-["Passport Holder","Accessories",19.99,0,1],
-["Hair Claw Clip Set","Accessories",12.99,0,1],
-["Umbrella - Spot Print","Accessories",22.99,0,1],
-["Waterproof Chain Necklace","Jewellery",29.99,0,1],
-["Bee Stud Earrings","Jewellery",19.99,0,1],
-["Friendship Bracelet","Jewellery",24.99,0,1],
-["Birthstone Necklace","Jewellery",34.99,0,1],
-["Gold Hoop Earrings","Jewellery",22.99,0,0],
-["Layered Charm Bracelet","Jewellery",39.99,49.99,1],
-["Initial Pendant Necklace","Jewellery",27.99,0,1],
-["Sentiment Candle - Best Friend","Home & Fragrance",19.99,0,1],
-["Reed Diffuser - Pomelo & Lychee","Home & Fragrance",24.99,0,1],
-["Wax Melts Gift Set","Home & Fragrance",12.99,0,1],
-["Hand Cream Trio","Home & Fragrance",18.99,0,1],
-["Ceramic Trinket Dish","Home & Fragrance",14.99,0,1],
-["Sentiment Photo Frame","Home & Fragrance",16.99,0,1],
-["Travel Tin Candle","Home & Fragrance",9.99,12.99,1],
-["Perfect Pamper Gift Set","Gifts",29.99,0,1],
-["New Baby Gift Box","Gifts",34.99,0,1],
-["Prosecco Pamper Set","Gifts",24.99,0,0],
-["Thank You Gift Bag","Gifts",12.99,0,1],
-["Bridesmaid Sentiment Box","Gifts",27.99,0,1],
-["Perfect Pouch - Mum","Perfect Pouches",9.99,0,1],
-["Perfect Pouch - Bride To Be","Perfect Pouches",9.99,0,1],
-["Perfect Pouch - Best Friend","Perfect Pouches",9.99,0,1],
-["Perfect Pouch - Thank You","Perfect Pouches",7.99,9.99,1],
-["Perfect Pouch - New Baby","Perfect Pouches",9.99,0,1],
-["Perfect Pouch - Happy Birthday","Perfect Pouches",9.99,0,1]
-]}
+{"generatedAt":"2026-07-09","source":"sample","currency":"GBP","brands":["Katie Loxton"],"count":51,"products":[{"title":"Kayla Quilted Cross Body Bag","handle":"kayla-quilted-cross-body-bag","url":"https://www.katieloxton.com/products/kayla-quilted-cross-body-bag","brand":"Katie Loxton","category":"Bags","price":59.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-06-21","image":null},{"title":"Fern Woven Tote Bag","handle":"fern-woven-tote-bag","url":"https://www.katieloxton.com/products/fern-woven-tote-bag","brand":"Katie Loxton","category":"Bags","price":74.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Woven","createdAt":"2025-11-28","image":null},{"title":"Loua Boxy Grab Bag","handle":"loua-boxy-grab-bag","url":"https://www.katieloxton.com/products/loua-boxy-grab-bag","brand":"Katie Loxton","category":"Bags","price":54.99,"compareAt":74.99,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-02-23","image":null},{"title":"Celine Backpack","handle":"celine-backpack","url":"https://www.katieloxton.com/products/celine-backpack","brand":"Katie Loxton","category":"Bags","price":89.99,"compareAt":0,"available":false,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-08-04","image":null},{"title":"Aria Shoulder Bag","handle":"aria-shoulder-bag","url":"https://www.katieloxton.com/products/aria-shoulder-bag","brand":"Katie Loxton","category":"Bags","price":64.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-05-16","image":null},{"title":"Weekend Holdall","handle":"weekend-holdall","url":"https://www.katieloxton.com/products/weekend-holdall","brand":"Katie Loxton","category":"Bags","price":84.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-10-27","image":null},{"title":"Effie Bucket Bag","handle":"effie-bucket-bag","url":"https://www.katieloxton.com/products/effie-bucket-bag","brand":"Katie Loxton","category":"Bags","price":49.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-01-17","image":null},{"title":"Mila Mini Cross Body","handle":"mila-mini-cross-body","url":"https://www.katieloxton.com/products/mila-mini-cross-body","brand":"Katie Loxton","category":"Bags","price":44.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-05-24","image":null},{"title":"Demi Structured Handbag","handle":"demi-structured-handbag","url":"https://www.katieloxton.com/products/demi-structured-handbag","brand":"Katie Loxton","category":"Bags","price":69.99,"compareAt":89.99,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-11-12","image":null},{"title":"Isla Straw Basket Bag","handle":"isla-straw-basket-bag","url":"https://www.katieloxton.com/products/isla-straw-basket-bag","brand":"Katie Loxton","category":"Bags","price":39.99,"compareAt":0,"available":false,"colour":"Tan","occasion":"Everyday","material":"Straw","createdAt":"2025-08-26","image":null},{"title":"Birdie Large Fold-Out Purse","handle":"birdie-large-fold-out-purse","url":"https://www.katieloxton.com/products/birdie-large-fold-out-purse","brand":"Katie Loxton","category":"Purses & Wallets","price":34.99,"compareAt":0,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-12-21","image":null},{"title":"Casey Slim Card Holder","handle":"casey-slim-card-holder","url":"https://www.katieloxton.com/products/casey-slim-card-holder","brand":"Katie Loxton","category":"Purses & Wallets","price":24.99,"compareAt":0,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-03-18","image":null},{"title":"Alexa Coin Purse","handle":"alexa-coin-purse","url":"https://www.katieloxton.com/products/alexa-coin-purse","brand":"Katie Loxton","category":"Purses & Wallets","price":22.99,"compareAt":0,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-02-08","image":null},{"title":"Fold-Out Travel Wallet","handle":"fold-out-travel-wallet","url":"https://www.katieloxton.com/products/fold-out-travel-wallet","brand":"Katie Loxton","category":"Purses & Wallets","price":39.99,"compareAt":0,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-04-16","image":null},{"title":"Zip Around Matinee Purse","handle":"zip-around-matinee-purse","url":"https://www.katieloxton.com/products/zip-around-matinee-purse","brand":"Katie Loxton","category":"Purses & Wallets","price":34.99,"compareAt":44.99,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-01-23","image":null},{"title":"Everyday Card Holder","handle":"everyday-card-holder","url":"https://www.katieloxton.com/products/everyday-card-holder","brand":"Katie Loxton","category":"Purses & Wallets","price":19.99,"compareAt":0,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-09-22","image":null},{"title":"Set of 3 Cosmetic Bags","handle":"set-of-3-cosmetic-bags","url":"https://www.katieloxton.com/products/set-of-3-cosmetic-bags","brand":"Katie Loxton","category":"Accessories","price":29.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Mixed","createdAt":"2025-07-16","image":null},{"title":"Wash Bag - Blush","handle":"wash-bag-blush","url":"https://www.katieloxton.com/products/wash-bag-blush","brand":"Katie Loxton","category":"Accessories","price":29.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Mixed","createdAt":"2026-03-05","image":null},{"title":"Tortoiseshell Sunglasses","handle":"tortoiseshell-sunglasses","url":"https://www.katieloxton.com/products/tortoiseshell-sunglasses","brand":"Katie Loxton","category":"Accessories","price":34.99,"compareAt":0,"available":true,"colour":"Tortoiseshell","occasion":"Everyday","material":"Acetate","createdAt":"2025-03-22","image":null},{"title":"Blanket Scarf - Sage","handle":"blanket-scarf-sage","url":"https://www.katieloxton.com/products/blanket-scarf-sage","brand":"Katie Loxton","category":"Accessories","price":29.99,"compareAt":39.99,"available":true,"colour":"Sage","occasion":"Everyday","material":"Cotton","createdAt":"2025-11-24","image":null},{"title":"Bee Keyring Charm","handle":"bee-keyring-charm","url":"https://www.katieloxton.com/products/bee-keyring-charm","brand":"Katie Loxton","category":"Accessories","price":9.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Metal","createdAt":"2026-06-21","image":null},{"title":"Card Holder Keyring","handle":"card-holder-keyring","url":"https://www.katieloxton.com/products/card-holder-keyring","brand":"Katie Loxton","category":"Accessories","price":14.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Metal","createdAt":"2025-11-28","image":null},{"title":"Travel Pouch Set","handle":"travel-pouch-set","url":"https://www.katieloxton.com/products/travel-pouch-set","brand":"Katie Loxton","category":"Accessories","price":24.99,"compareAt":0,"available":false,"colour":"Blush","occasion":"Everyday","material":"Mixed","createdAt":"2026-02-23","image":null},{"title":"Passport Holder","handle":"passport-holder","url":"https://www.katieloxton.com/products/passport-holder","brand":"Katie Loxton","category":"Accessories","price":19.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Mixed","createdAt":"2025-08-04","image":null},{"title":"Hair Claw Clip Set","handle":"hair-claw-clip-set","url":"https://www.katieloxton.com/products/hair-claw-clip-set","brand":"Katie Loxton","category":"Accessories","price":12.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Metal","createdAt":"2026-05-16","image":null},{"title":"Umbrella - Spot Print","handle":"umbrella-spot-print","url":"https://www.katieloxton.com/products/umbrella-spot-print","brand":"Katie Loxton","category":"Accessories","price":22.99,"compareAt":0,"available":true,"colour":"Monochrome","occasion":"Everyday","material":"Mixed","createdAt":"2025-10-27","image":null},{"title":"Waterproof Chain Necklace","handle":"waterproof-chain-necklace","url":"https://www.katieloxton.com/products/waterproof-chain-necklace","brand":"Katie Loxton","category":"Jewellery","price":29.99,"compareAt":0,"available":true,"colour":"Gold","occasion":"Everyday","material":"Metal","createdAt":"2026-01-17","image":null},{"title":"Bee Stud Earrings","handle":"bee-stud-earrings","url":"https://www.katieloxton.com/products/bee-stud-earrings","brand":"Katie Loxton","category":"Jewellery","price":19.99,"compareAt":0,"available":true,"colour":"Gold","occasion":"Everyday","material":"Metal","createdAt":"2025-05-24","image":null},{"title":"Friendship Bracelet","handle":"friendship-bracelet","url":"https://www.katieloxton.com/products/friendship-bracelet","brand":"Katie Loxton","category":"Jewellery","price":24.99,"compareAt":0,"available":true,"colour":"Gold","occasion":"Best Friend","material":"Metal","createdAt":"2025-11-12","image":null},{"title":"Birthstone Necklace","handle":"birthstone-necklace","url":"https://www.katieloxton.com/products/birthstone-necklace","brand":"Katie Loxton","category":"Jewellery","price":34.99,"compareAt":0,"available":true,"colour":"Gold","occasion":"Birthday","material":"Metal","createdAt":"2025-08-26","image":null},{"title":"Gold Hoop Earrings","handle":"gold-hoop-earrings","url":"https://www.katieloxton.com/products/gold-hoop-earrings","brand":"Katie Loxton","category":"Jewellery","price":22.99,"compareAt":0,"available":false,"colour":"Gold","occasion":"Everyday","material":"Metal","createdAt":"2025-12-21","image":null},{"title":"Layered Charm Bracelet","handle":"layered-charm-bracelet","url":"https://www.katieloxton.com/products/layered-charm-bracelet","brand":"Katie Loxton","category":"Jewellery","price":39.99,"compareAt":49.99,"available":true,"colour":"Gold","occasion":"Everyday","material":"Metal","createdAt":"2026-03-18","image":null},{"title":"Initial Pendant Necklace","handle":"initial-pendant-necklace","url":"https://www.katieloxton.com/products/initial-pendant-necklace","brand":"Katie Loxton","category":"Jewellery","price":27.99,"compareAt":0,"available":true,"colour":"Gold","occasion":"Everyday","material":"Metal","createdAt":"2025-02-08","image":null},{"title":"Sentiment Candle - Best Friend","handle":"sentiment-candle-best-friend","url":"https://www.katieloxton.com/products/sentiment-candle-best-friend","brand":"Katie Loxton","category":"Home & Fragrance","price":19.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Best Friend","material":"Wax","createdAt":"2026-04-16","image":null},{"title":"Reed Diffuser - Pomelo & Lychee","handle":"reed-diffuser-pomelo-and-lychee","url":"https://www.katieloxton.com/products/reed-diffuser-pomelo-and-lychee","brand":"Katie Loxton","category":"Home & Fragrance","price":24.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Everyday","material":"Glass","createdAt":"2026-01-23","image":null},{"title":"Wax Melts Gift Set","handle":"wax-melts-gift-set","url":"https://www.katieloxton.com/products/wax-melts-gift-set","brand":"Katie Loxton","category":"Home & Fragrance","price":12.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Everyday","material":"Wax","createdAt":"2025-09-22","image":null},{"title":"Hand Cream Trio","handle":"hand-cream-trio","url":"https://www.katieloxton.com/products/hand-cream-trio","brand":"Katie Loxton","category":"Home & Fragrance","price":18.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Everyday","material":"Mixed","createdAt":"2025-07-16","image":null},{"title":"Ceramic Trinket Dish","handle":"ceramic-trinket-dish","url":"https://www.katieloxton.com/products/ceramic-trinket-dish","brand":"Katie Loxton","category":"Home & Fragrance","price":14.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Everyday","material":"Ceramic","createdAt":"2026-03-05","image":null},{"title":"Sentiment Photo Frame","handle":"sentiment-photo-frame","url":"https://www.katieloxton.com/products/sentiment-photo-frame","brand":"Katie Loxton","category":"Home & Fragrance","price":16.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Everyday","material":"Ceramic","createdAt":"2025-03-22","image":null},{"title":"Travel Tin Candle","handle":"travel-tin-candle","url":"https://www.katieloxton.com/products/travel-tin-candle","brand":"Katie Loxton","category":"Home & Fragrance","price":9.99,"compareAt":12.99,"available":true,"colour":"Cream","occasion":"Everyday","material":"Wax","createdAt":"2025-11-24","image":null},{"title":"Perfect Pamper Gift Set","handle":"perfect-pamper-gift-set","url":"https://www.katieloxton.com/products/perfect-pamper-gift-set","brand":"Katie Loxton","category":"Gifts","price":29.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Treat / Self","material":"Mixed","createdAt":"2026-06-21","image":null},{"title":"New Baby Gift Box","handle":"new-baby-gift-box","url":"https://www.katieloxton.com/products/new-baby-gift-box","brand":"Katie Loxton","category":"Gifts","price":34.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"New Baby","material":"Mixed","createdAt":"2025-11-28","image":null},{"title":"Prosecco Pamper Set","handle":"prosecco-pamper-set","url":"https://www.katieloxton.com/products/prosecco-pamper-set","brand":"Katie Loxton","category":"Gifts","price":24.99,"compareAt":0,"available":false,"colour":"Blush","occasion":"Treat / Self","material":"Mixed","createdAt":"2026-02-23","image":null},{"title":"Thank You Gift Bag","handle":"thank-you-gift-bag","url":"https://www.katieloxton.com/products/thank-you-gift-bag","brand":"Katie Loxton","category":"Gifts","price":12.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Thank You","material":"Mixed","createdAt":"2025-08-04","image":null},{"title":"Bridesmaid Sentiment Box","handle":"bridesmaid-sentiment-box","url":"https://www.katieloxton.com/products/bridesmaid-sentiment-box","brand":"Katie Loxton","category":"Gifts","price":27.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Wedding","material":"Mixed","createdAt":"2026-05-16","image":null},{"title":"Perfect Pouch - Mum","handle":"perfect-pouch-mum","url":"https://www.katieloxton.com/products/perfect-pouch-mum","brand":"Katie Loxton","category":"Perfect Pouches","price":9.99,"compareAt":0,"available":true,"colour":"Sage","occasion":"Mum","material":"Cotton","createdAt":"2025-10-27","image":null},{"title":"Perfect Pouch - Bride To Be","handle":"perfect-pouch-bride-to-be","url":"https://www.katieloxton.com/products/perfect-pouch-bride-to-be","brand":"Katie Loxton","category":"Perfect Pouches","price":9.99,"compareAt":0,"available":true,"colour":"Sage","occasion":"Wedding","material":"Cotton","createdAt":"2026-01-17","image":null},{"title":"Perfect Pouch - Best Friend","handle":"perfect-pouch-best-friend","url":"https://www.katieloxton.com/products/perfect-pouch-best-friend","brand":"Katie Loxton","category":"Perfect Pouches","price":9.99,"compareAt":0,"available":true,"colour":"Sage","occasion":"Best Friend","material":"Cotton","createdAt":"2025-05-24","image":null},{"title":"Perfect Pouch - Thank You","handle":"perfect-pouch-thank-you","url":"https://www.katieloxton.com/products/perfect-pouch-thank-you","brand":"Katie Loxton","category":"Perfect Pouches","price":7.99,"compareAt":9.99,"available":true,"colour":"Sage","occasion":"Thank You","material":"Cotton","createdAt":"2025-11-12","image":null},{"title":"Perfect Pouch - New Baby","handle":"perfect-pouch-new-baby","url":"https://www.katieloxton.com/products/perfect-pouch-new-baby","brand":"Katie Loxton","category":"Perfect Pouches","price":9.99,"compareAt":0,"available":true,"colour":"Sage","occasion":"New Baby","material":"Cotton","createdAt":"2025-08-26","image":null},{"title":"Perfect Pouch - Happy Birthday","handle":"perfect-pouch-happy-birthday","url":"https://www.katieloxton.com/products/perfect-pouch-happy-birthday","brand":"Katie Loxton","category":"Perfect Pouches","price":9.99,"compareAt":0,"available":true,"colour":"Sage","occasion":"Birthday","material":"Cotton","createdAt":"2025-12-21","image":null}]}
 </script>
 
 <script>
@@ -417,6 +390,18 @@ const BRACKETS = [
   {key:"50-75", label:"£50–£75", test:p=>p>=50&&p<75},
   {key:"75+", label:"£75+", test:p=>p>=75},
 ];
+const NEW_DAYS = 90;
+const RECENCY = [
+  {key:"n30", label:"≤ 30 days", test:d=>d<=30},
+  {key:"n90", label:"31–90 days", test:d=>d>30&&d<=90},
+  {key:"n180", label:"3–6 months", test:d=>d>90&&d<=180},
+  {key:"n365", label:"6–12 months", test:d=>d>180&&d<=365},
+  {key:"n365p", label:"12 months+", test:d=>d>365},
+];
+const COLOUR_HEX = {Blush:"#e7b7c0", Sage:"#a9b99a", Tan:"#c69c6d", Black:"#3a3330", Gold:"#c9a24a",
+  Cream:"#ece3d2", Monochrome:"#6b6b6b", Tortoiseshell:"#7a4a24", Navy:"#2f3b52", Pink:"#e39ab0",
+  Silver:"#b8bcc2", White:"#f2efe9", Mixed:"#b9a99c"};
+const colHex = c => COLOUR_HEX[c] || "#b9a99c";
 const GBP = n => "£"+n.toFixed(2);
 const GBP0 = n => "£"+Math.round(n);
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -425,6 +410,7 @@ const catColor = c => css(CAT_VAR[c]||"--accent");
 /* ---------------- Load data ---------------- */
 function normalise(raw){
   const isTuple = Array.isArray(raw.products[0]);
+  const now = raw.generatedAt ? new Date(raw.generatedAt) : new Date();
   return raw.products.map((p,i)=>{
     let o;
     if(isTuple){
@@ -435,12 +421,19 @@ function normalise(raw){
       o = {title:p.title, category:p.category||"Other", price:+p.price,
            compareAt:+(p.compareAt||0), available:p.available!==false,
            handle:p.handle||slug(p.title), url:p.url||("https://www.katieloxton.com/products/"+(p.handle||slug(p.title))),
-           image:p.image||null, tags:p.tags||[]};
+           image:p.image||null, tags:p.tags||[],
+           brand:p.brand||"Katie Loxton", colour:p.colour||"Mixed",
+           occasion:p.occasion||"Everyday", material:p.material||"Mixed", createdAt:p.createdAt||null};
     }
+    o.brand = o.brand||"Katie Loxton"; o.colour=o.colour||"Mixed";
+    o.occasion=o.occasion||"Everyday"; o.material=o.material||"Mixed";
     o.id=i;
     o.onSale = o.compareAt>o.price;
     o.discountPct = o.onSale ? Math.round((1-o.price/o.compareAt)*100) : 0;
     o.bracket = (BRACKETS.find(b=>b.test(o.price))||BRACKETS[0]).key;
+    o.ageDays = o.createdAt ? Math.max(0,Math.round((now-new Date(o.createdAt))/86400000)) : null;
+    o.isNew = o.ageDays!=null && o.ageDays<=NEW_DAYS;
+    o.recency = o.ageDays!=null ? (RECENCY.find(r=>r.test(o.ageDays))||RECENCY[RECENCY.length-1]).key : null;
     return o;
   });
 }
@@ -461,6 +454,10 @@ async function boot(){
   // sort categories present by fixed order
   DATA.cats = CATEGORY_ORDER.filter(c=>PRODUCTS.some(p=>p.category===c))
               .concat([...new Set(PRODUCTS.map(p=>p.category))].filter(c=>!CATEGORY_ORDER.includes(c)));
+  const facet = k => [...new Set(PRODUCTS.map(p=>p[k]).filter(Boolean))].sort();
+  DATA.occasions = facet("occasion"); DATA.colours = facet("colour");
+  DATA.materials = facet("material"); DATA.brands = facet("brand");
+  DATA.hasDates = PRODUCTS.some(p=>p.ageDays!=null);
   setupSource(); setupFilters(); render();
 }
 
@@ -475,40 +472,49 @@ function setupSource(){
 }
 
 /* ---------------- Filters / state ---------------- */
-const state = {q:"", cat:"", bracket:"", stock:"", sale:false, view:"grid", focus:null};
+const state = {q:"", brand:"", cat:"", bracket:"", occasion:"", colour:"", material:"", recency:"", stock:"", sale:false, isNew:false, view:"grid", focus:null};
+const $ = id => document.getElementById(id);
+function fill(id,items,fmt){ const s=$(id); items.forEach(v=>s.append(new Option(fmt?fmt(v):v, v))); }
 function setupFilters(){
-  const fc=document.getElementById("fCat"), fb=document.getElementById("fBracket");
-  DATA.cats.forEach(c=>fc.append(new Option(c,c)));
-  BRACKETS.forEach(b=>fb.append(new Option(b.label,b.key)));
-  document.getElementById("q").addEventListener("input",e=>{state.q=e.target.value.trim().toLowerCase(); render();});
-  fc.addEventListener("change",e=>{state.cat=e.target.value; render();});
-  fb.addEventListener("change",e=>{state.bracket=e.target.value; render();});
-  document.getElementById("fStock").addEventListener("change",e=>{state.stock=e.target.value; render();});
-  document.getElementById("fSale").addEventListener("change",e=>{state.sale=e.target.checked; render();});
-  document.getElementById("reset").addEventListener("click",resetFilters);
-  document.getElementById("vGrid").addEventListener("click",()=>{state.view="grid"; render();});
-  document.getElementById("vTable").addEventListener("click",()=>{state.view="table"; render();});
+  fill("fCat",DATA.cats); fill("fBracket",BRACKETS.map(b=>b.key),k=>BRACKETS.find(b=>b.key===k).label);
+  fill("fOccasion",DATA.occasions); fill("fColour",DATA.colours); fill("fMaterial",DATA.materials);
+  if(DATA.brands.length>1){ $("brandField").hidden=false; fill("fBrand",DATA.brands);
+    $("fBrand").addEventListener("change",e=>{state.brand=e.target.value; render();}); }
+  $("q").addEventListener("input",e=>{state.q=e.target.value.trim().toLowerCase(); render();});
+  const bind=(id,key)=>$(id).addEventListener("change",e=>{state[key]=e.target.value; render();});
+  bind("fCat","cat"); bind("fBracket","bracket"); bind("fOccasion","occasion");
+  bind("fColour","colour"); bind("fMaterial","material"); bind("fStock","stock");
+  $("fSale").addEventListener("change",e=>{state.sale=e.target.checked; render();});
+  $("fNew").addEventListener("change",e=>{state.isNew=e.target.checked; render();});
+  $("reset").addEventListener("click",resetFilters);
+  $("vGrid").addEventListener("click",()=>{state.view="grid"; render();});
+  $("vTable").addEventListener("click",()=>{state.view="table"; render();});
 }
 function resetFilters(){
-  Object.assign(state,{q:"",cat:"",bracket:"",stock:"",sale:false});
-  document.getElementById("q").value=""; document.getElementById("fCat").value="";
-  document.getElementById("fBracket").value=""; document.getElementById("fStock").value="";
-  document.getElementById("fSale").checked=false; render();
+  Object.assign(state,{q:"",brand:"",cat:"",bracket:"",occasion:"",colour:"",material:"",recency:"",stock:"",sale:false,isNew:false});
+  ["q","fBrand","fCat","fBracket","fOccasion","fColour","fMaterial","fStock"].forEach(id=>{const el=$(id); if(el)el.value="";});
+  $("fSale").checked=false; $("fNew").checked=false; render();
 }
 function syncControls(){
-  document.getElementById("fCat").value=state.cat;
-  document.getElementById("fBracket").value=state.bracket;
-  document.getElementById("fStock").value=state.stock;
-  document.getElementById("fSale").checked=state.sale;
+  const set=(id,v)=>{const el=$(id); if(el)el.value=v;};
+  set("fBrand",state.brand); set("fCat",state.cat); set("fBracket",state.bracket);
+  set("fOccasion",state.occasion); set("fColour",state.colour); set("fMaterial",state.material);
+  set("fStock",state.stock); $("fSale").checked=state.sale; $("fNew").checked=state.isNew;
 }
 function filtered(){
   return PRODUCTS.filter(p=>{
     if(state.q && !p.title.toLowerCase().includes(state.q) && !p.category.toLowerCase().includes(state.q)) return false;
+    if(state.brand && p.brand!==state.brand) return false;
     if(state.cat && p.category!==state.cat) return false;
     if(state.bracket && p.bracket!==state.bracket) return false;
+    if(state.occasion && p.occasion!==state.occasion) return false;
+    if(state.colour && p.colour!==state.colour) return false;
+    if(state.material && p.material!==state.material) return false;
+    if(state.recency && p.recency!==state.recency) return false;
     if(state.stock==="in" && !p.available) return false;
     if(state.stock==="out" && p.available) return false;
     if(state.sale && !p.onSale) return false;
+    if(state.isNew && !p.isNew) return false;
     return true;
   });
 }
@@ -541,6 +547,9 @@ function render(){
   renderDonut(list);
   renderPriceBars(list);
   renderAvail(list);
+  renderOccasion(list);
+  renderColour(list);
+  renderNewness(list);
   renderProducts(list);
 }
 
@@ -550,10 +559,16 @@ function renderChips(){
     c.innerHTML=`<span>${label}</span>`; const b=document.createElement("button"); b.textContent="×";
     b.onclick=()=>{clear(); render();}; c.append(b); box.append(c); };
   if(state.q) add(`“${state.q}”`,()=>{state.q="";document.getElementById("q").value="";});
+  if(state.brand) add(state.brand,()=>state.brand="");
   if(state.cat) add(state.cat,()=>state.cat="");
   if(state.bracket) add(BRACKETS.find(b=>b.key===state.bracket).label,()=>state.bracket="");
+  if(state.occasion) add("For: "+state.occasion,()=>state.occasion="");
+  if(state.colour) add(`<span class="swatch-inline" style="background:${colHex(state.colour)}"></span>${state.colour}`,()=>state.colour="");
+  if(state.material) add(state.material,()=>state.material="");
+  if(state.recency) add(RECENCY.find(r=>r.key===state.recency).label,()=>state.recency="");
   if(state.stock) add(state.stock==="in"?"In stock":"Out of stock",()=>state.stock="");
   if(state.sale) add("On sale",()=>state.sale=false);
+  if(state.isNew) add("New in",()=>state.isNew=false);
 }
 
 function kpi(label,val,foot,onClick){
@@ -574,6 +589,11 @@ function renderKPIs(m,list){
   const lux = list.filter(p=>p.price>=50).length;
   box.append(kpi("Premium", lux, `styles £50+`,
     ()=>{state.bracket=state.bracket==="50-75"?"":"50-75"; render();}));
+  if(DATA.hasDates){
+    const fresh = list.filter(p=>p.isNew).length;
+    box.append(kpi("New in", fresh, `added ≤ ${NEW_DAYS} days`,
+      ()=>{state.isNew=!state.isNew; render();}));
+  }
 }
 
 function barRow(name,value,max,valLabel,active,onClick,tip){
@@ -665,6 +685,45 @@ function renderAvail(list){
   if(!rows.length) box.innerHTML='<div class="empty">No products match.</div>';
 }
 
+/* Generic horizontal-bar facet: groups = [{key,label,n,color}] */
+function facetBars(boxId, groups, activeVal, pick, tipNoun){
+  const box=document.getElementById(boxId); box.innerHTML="";
+  const shown=groups.filter(g=>g.n>0).sort((a,b)=>b.n-a.n);
+  const max=Math.max(1,...shown.map(g=>g.n));
+  shown.forEach(g=>{
+    const row=barRow(g.label, g.n, max, `${g.n}`, activeVal===g.key,
+      ()=>pick(activeVal===g.key?"":g.key),
+      `<b>${g.label}</b><br>${g.n} ${tipNoun}`);
+    if(g.color) row.querySelector(".fill").style.background=g.color;
+    box.append(row);
+  });
+  if(!shown.length) box.innerHTML='<div class="empty">No products match.</div>';
+}
+function renderOccasion(list){
+  const groups=DATA.occasions.map(o=>({key:o,label:o,n:list.filter(p=>p.occasion===o).length,color:"var(--accent)"}));
+  facetBars("occBars",groups,state.occasion,v=>{state.occasion=v; render();},"styles");
+}
+function renderColour(list){
+  const groups=DATA.colours.map(c=>({key:c,label:`<span class="swatch-inline" style="background:${colHex(c)}"></span>${c}`,
+    n:list.filter(p=>p.colour===c).length, color:colHex(c)}));
+  facetBars("colBars",groups,state.colour,v=>{state.colour=v; render();},"styles");
+}
+function renderNewness(list){
+  const box=document.getElementById("newBars"); box.innerHTML="";
+  if(!DATA.hasDates){ box.innerHTML='<div class="empty">Newness needs product dates — available once the live catalogue is loaded.</div>'; return; }
+  const counts=RECENCY.map(r=>({r, n:list.filter(p=>p.recency===r.key).length}));
+  const max=Math.max(1,...counts.map(x=>x.n));
+  counts.forEach(x=>{
+    const col=document.createElement("div"); col.className="vcol";
+    const h=x.n? Math.max(4,(x.n/max*140)) : 3;
+    const isNewBand = x.r.key==="n30"||x.r.key==="n90";
+    col.innerHTML=`<div class="vval">${x.n||""}</div><div class="vfill" style="height:${h}px;${state.recency===x.r.key?'background:var(--accent-ink)':(isNewBand?'background:var(--good)':'')}"></div><div class="vlabel">${x.r.label}</div>`;
+    col.onclick=()=>{state.recency=state.recency===x.r.key?"":x.r.key; render();};
+    attachTip(col,`<b>${x.r.label}</b><br>${x.n} styles`);
+    box.append(col);
+  });
+}
+
 /* ---------------- Insights ---------------- */
 function renderInsights(){
   const box=document.getElementById("insights"); box.innerHTML="";
@@ -689,10 +748,17 @@ function renderInsights(){
   const cheap=all.filter(p=>p.price<10).length;
   if(cheap) items.push({t:`${cheap} gift-price styles under £10`, d:`Your accessible entry point — strong for impulse & add-on gifting.`,
     cta:"View entry range", cls:"good", act:()=>{resetFilters(); state.bracket="u10";}});
-  // dominant category
-  const dom=[...byCat].sort((a,b)=>b.total-a.total)[0];
-  if(dom) items.push({t:`${dom.c} leads the range`, d:`${dom.total} styles (${Math.round(dom.total/all.length*100)}% of the assortment) — the brand's centre of gravity.`,
-    cta:"Explore "+dom.c, cls:"", act:()=>{resetFilters(); state.cat=dom.c;}});
+  // newness
+  if(DATA.hasDates){
+    const fresh=all.filter(p=>p.isNew).length;
+    if(fresh) items.push({t:`${fresh} new styles in the last ${NEW_DAYS} days`, d:`${Math.round(fresh/all.length*100)}% of the range is fresh — a read on how fast the assortment turns.`,
+      cta:"See what's new", cls:"good", act:()=>{resetFilters(); state.isNew=true;}});
+  }
+  // top gifting occasion (excluding the generic Everyday bucket)
+  const occ={}; all.forEach(p=>{ if(p.occasion&&p.occasion!=="Everyday") occ[p.occasion]=(occ[p.occasion]||0)+1; });
+  const topOcc=Object.entries(occ).sort((a,b)=>b[1]-a[1])[0];
+  if(topOcc) items.push({t:`${topOcc[0]} is the biggest gifting occasion`, d:`${topOcc[1]} styles speak to it — Katie Loxton's occasion-led ranges are a core commercial lever.`,
+    cta:`View ${topOcc[0]} range`, cls:"", act:()=>{resetFilters(); state.occasion=topOcc[0];}});
 
   items.slice(0,6).forEach(it=>{
     const d=document.createElement("div"); d.className="insight "+(it.cls||"");
@@ -705,8 +771,12 @@ function renderInsights(){
 /* ---------------- Products ---------------- */
 function renderProducts(list){
   const title=document.getElementById("prodTitle");
-  const parts=[]; if(state.cat)parts.push(state.cat); if(state.bracket)parts.push(BRACKETS.find(b=>b.key===state.bracket).label);
+  const parts=[]; if(state.brand)parts.push(state.brand); if(state.cat)parts.push(state.cat);
+  if(state.bracket)parts.push(BRACKETS.find(b=>b.key===state.bracket).label);
+  if(state.occasion)parts.push("for "+state.occasion); if(state.colour)parts.push(state.colour);
+  if(state.material)parts.push(state.material); if(state.recency)parts.push(RECENCY.find(r=>r.key===state.recency).label);
   if(state.stock)parts.push(state.stock==="in"?"in stock":"out of stock"); if(state.sale)parts.push("on sale");
+  if(state.isNew)parts.push("new in");
   title.textContent = parts.length? parts.join(" · ")+` (${list.length})` : `All products (${list.length})`;
   document.getElementById("vGrid").classList.toggle("on",state.view==="grid");
   document.getElementById("vTable").classList.toggle("on",state.view==="table");
@@ -722,12 +792,14 @@ function renderGrid(list,view){
     a.innerHTML=`
       <div class="thumb" style="background:linear-gradient(135deg,${col},color-mix(in srgb,${col} 60%,#000))">
         ${p.onSale?`<span class="sale-tag">-${p.discountPct}%</span>`:""}
+        ${p.isNew&&!p.onSale?'<span class="new-badge">NEW</span>':""}
         <span class="mono">${initials(p.title)}</span>
         ${!p.available?'<div class="oos"><span>Out of stock</span></div>':""}
       </div>
       <div class="body">
         <div class="cat" style="color:${col}">${p.category}</div>
         <div class="t">${p.title}</div>
+        <div class="meta"><span class="swatch" style="background:${colHex(p.colour)}"></span>${p.colour} · ${p.material}${p.occasion&&p.occasion!=="Everyday"?" · "+p.occasion:""}</div>
         <div class="price">
           <span class="now ${p.onSale?'sale':''}">${GBP(p.price)}</span>
           ${p.onSale?`<span class="was">${GBP(p.compareAt)}</span>`:""}
@@ -741,13 +813,16 @@ function renderGrid(list,view){
 function renderTable(list,view){
   const rows=list.map(p=>`<tr>
     <td>${p.title}</td><td>${p.category}</td>
+    <td>${p.occasion||"—"}</td>
+    <td><span class="swatch-inline" style="background:${colHex(p.colour)}"></span>${p.colour||"—"}</td>
+    <td>${p.material||"—"}</td>
     <td class="n">${GBP(p.price)}</td>
     <td class="n">${p.onSale?GBP(p.compareAt):"—"}</td>
     <td class="n">${p.onSale?"-"+p.discountPct+"%":"—"}</td>
-    <td>${p.available?'<span style="color:var(--good)">In stock</span>':'<span style="color:var(--bad)">Out</span>'}</td>
+    <td>${p.available?'<span style="color:var(--good)">In stock</span>':'<span style="color:var(--bad)">Out</span>'}${p.isNew?' <span style="color:var(--good)">· new</span>':""}</td>
     </tr>`).join("");
   view.innerHTML=`<div class="tablewrap"><table class="data">
-    <thead><tr><th>Product</th><th>Category</th><th style="text-align:right">Price</th><th style="text-align:right">Was</th><th style="text-align:right">Disc.</th><th>Stock</th></tr></thead>
+    <thead><tr><th>Product</th><th>Category</th><th>Occasion</th><th>Colour</th><th>Material</th><th style="text-align:right">Price</th><th style="text-align:right">Was</th><th style="text-align:right">Disc.</th><th>Stock</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 const initials = t => t.replace(/[^a-zA-Z ]/g,"").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
