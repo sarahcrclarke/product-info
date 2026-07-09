@@ -1,0 +1,15 @@
+{
+  "name": "Katie Loxton · Product Intelligence",
+  "short_name": "KL Insight",
+  "description": "At-a-glance product intelligence for the Katie Loxton range — assortment, pricing, availability and discounting, with click-through detail.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#faf6f2",
+  "theme_color": "#b14a66",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

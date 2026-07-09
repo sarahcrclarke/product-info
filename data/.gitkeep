@@ -1,0 +1,2 @@
+# The scraper writes products.json here. Until then, the dashboard uses the
+# built-in sample data embedded in index.html.

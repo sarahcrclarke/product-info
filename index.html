@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Katie Loxton · Product Intelligence</title>
+<meta name="description" content="An at-a-glance product intelligence dashboard for the Katie Loxton range — assortment, pricing, availability and discounting, with click-through detail." />
+<meta name="theme-color" content="#b14a66" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="./icon.svg" />
+<style>
+/* ---------- Design tokens ---------- */
+:root{
+  --font-display: "Cormorant Garamond", "Hoefler Text", Garamond, "Times New Roman", serif;
+  --font-body: "Avenir Next", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  --font-num: "SF Mono", "IBM Plex Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+
+  /* warm, brand-biased neutrals */
+  --bg: #faf6f2;
+  --surface: #fffdfb;
+  --surface-2: #f4ece6;
+  --line: #e7dcd3;
+  --line-strong: #d8c8bc;
+  --ink: #2c2523;
+  --ink-2: #6a5d56;
+  --ink-3: #9a8d85;
+
+  /* brand accent (single-hue magnitude + UI) */
+  --accent: #b14a66;
+  --accent-strong: #96385222;
+  --accent-ink: #96384f;
+  --accent-soft: #f5e3e8;
+  --gold: #b0894f;
+
+  /* status (distinct from categorical) */
+  --good: #2f7d4f;
+  --good-soft:#e3f0e7;
+  --warn: #b9791f;
+  --warn-soft:#f6ebd8;
+  --bad: #b23b39;
+  --bad-soft:#f6e2e0;
+
+  /* categorical (validated light) — indexed by category */
+  --c0:#b14a66; --c1:#0e8cae; --c2:#c97a2c; --c3:#2f9e52; --c4:#2f6da6; --c5:#8a55b0; --c6:#c0392b;
+
+  --grid: #efe6de;
+  --shadow: 0 1px 2px rgba(60,40,30,.05), 0 8px 24px -12px rgba(60,40,30,.18);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#161311; --surface:#1f1a18; --surface-2:#272019; --line:#332a25; --line-strong:#453a33;
+    --ink:#f2e9e2; --ink-2:#c3b4a9; --ink-3:#8d7d73;
+    --accent:#d8788e; --accent-ink:#e79fae; --accent-soft:#3a2429; --gold:#d0aa6e;
+    --good:#5cc281; --good-soft:#1e2f24; --warn:#dda94a; --warn-soft:#302713; --bad:#e97a76; --bad-soft:#321f1e;
+    --c0:#d06a82; --c1:#1f93b4; --c2:#c8822c; --c3:#3e9e5c; --c4:#5a96d8; --c5:#b07ad0; --c6:#e06a5e;
+    --grid:#2a221d; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 30px -14px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#faf6f2; --surface:#fffdfb; --surface-2:#f4ece6; --line:#e7dcd3; --line-strong:#d8c8bc;
+  --ink:#2c2523; --ink-2:#6a5d56; --ink-3:#9a8d85;
+  --accent:#b14a66; --accent-ink:#96384f; --accent-soft:#f5e3e8; --gold:#b0894f;
+  --good:#2f7d4f; --good-soft:#e3f0e7; --warn:#b9791f; --warn-soft:#f6ebd8; --bad:#b23b39; --bad-soft:#f6e2e0;
+  --c0:#b14a66; --c1:#0e8cae; --c2:#c97a2c; --c3:#2f9e52; --c4:#2f6da6; --c5:#8a55b0; --c6:#c0392b;
+  --grid:#efe6de; --shadow:0 1px 2px rgba(60,40,30,.05),0 8px 24px -12px rgba(60,40,30,.18);
+}
+:root[data-theme="dark"]{
+  --bg:#161311; --surface:#1f1a18; --surface-2:#272019; --line:#332a25; --line-strong:#453a33;
+  --ink:#f2e9e2; --ink-2:#c3b4a9; --ink-3:#8d7d73;
+  --accent:#d8788e; --accent-ink:#e79fae; --accent-soft:#3a2429; --gold:#d0aa6e;
+  --good:#5cc281; --good-soft:#1e2f24; --warn:#dda94a; --warn-soft:#302713; --bad:#e97a76; --bad-soft:#321f1e;
+  --c0:#d06a82; --c1:#1f93b4; --c2:#c8822c; --c3:#3e9e5c; --c4:#5a96d8; --c5:#b07ad0; --c6:#e06a5e;
+  --grid:#2a221d; --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px -14px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font-body);
+  font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+h1,h2,h3{margin:0}
+button{font-family:inherit; cursor:pointer}
+a{color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1200px; margin:0 auto; padding:0 20px}
+
+/* ---------- Header ---------- */
+header.top{
+  position:sticky; top:0; z-index:30; background:color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter:saturate(1.4) blur(12px); border-bottom:1px solid var(--line);
+}
+.top .wrap{display:flex; align-items:center; gap:16px; padding-top:14px; padding-bottom:14px}
+.brand{display:flex; flex-direction:column; line-height:1.05}
+.brand .name{font-family:var(--font-display); font-size:26px; font-weight:600; letter-spacing:.02em}
+.brand .sub{font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-3); font-weight:600}
+.top .spacer{flex:1}
+.src-badge{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-2);
+  background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:6px 12px}
+.src-dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}
+.src-badge.live .src-dot{background:var(--good)}
+.iconbtn{width:38px;height:38px;display:grid;place-items:center;background:var(--surface);
+  border:1px solid var(--line); border-radius:10px; color:var(--ink-2)}
+.iconbtn:hover{color:var(--ink); border-color:var(--line-strong)}
+
+/* ---------- Notice banner ---------- */
+.banner{background:var(--warn-soft); border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);
+  border-radius:var(--radius); padding:12px 14px; margin:16px 0; display:flex; gap:12px; align-items:flex-start; font-size:13px; color:var(--ink)}
+.banner b{color:var(--warn)}
+.banner code{font-family:var(--font-num); font-size:12px; background:color-mix(in srgb,var(--warn) 14%,transparent); padding:1px 5px; border-radius:5px}
+.banner .x{margin-left:auto; background:none;border:none;color:var(--ink-2); font-size:18px; line-height:1}
+
+/* ---------- Filter bar ---------- */
+.filters{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:16px 0}
+.field{position:relative; display:flex; align-items:center}
+.field input, .field select{
+  appearance:none; font-family:inherit; font-size:13.5px; color:var(--ink);
+  background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:9px 12px;
+}
+.field.search input{padding-left:32px; width:230px}
+.field.search svg{position:absolute; left:10px; width:15px; height:15px; color:var(--ink-3)}
+.field select{padding-right:30px; background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);
+  background-position:calc(100% - 15px) 55%,calc(100% - 10px) 55%; background-size:5px 5px,5px 5px; background-repeat:no-repeat}
+.field input:focus, .field select:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:transparent}
+.toggle{display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink-2);
+  background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:8px 12px}
+.toggle input{accent-color:var(--accent); width:15px;height:15px}
+.btn-reset{background:none; border:1px solid transparent; color:var(--accent-ink); font-size:13px; padding:8px 6px; font-weight:600}
+.btn-reset:hover{text-decoration:underline}
+.filters .count{margin-left:auto; font-size:13px; color:var(--ink-2)}
+.filters .count b{color:var(--ink); font-variant-numeric:tabular-nums}
+
+/* ---------- KPI row ---------- */
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:6px 0 20px}
+.kpi{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 15px; box-shadow:var(--shadow); position:relative; overflow:hidden}
+.kpi.click{cursor:pointer; transition:transform .12s, border-color .12s}
+.kpi.click:hover{transform:translateY(-2px); border-color:var(--line-strong)}
+.kpi .label{font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-3); font-weight:600}
+.kpi .val{font-family:var(--font-display); font-size:32px; font-weight:600; margin-top:6px; line-height:1; font-variant-numeric:tabular-nums}
+.kpi .foot{font-size:12px; color:var(--ink-2); margin-top:6px}
+.kpi .spark{position:absolute; right:12px; top:14px; font-size:11px; color:var(--ink-3)}
+
+/* ---------- Cards / charts ---------- */
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 18px 20px}
+.card h2{font-size:15px; font-weight:600; letter-spacing:.01em; display:flex; align-items:center; gap:8px}
+.card .desc{font-size:12.5px; color:var(--ink-2); margin:3px 0 16px}
+.card.span2{grid-column:1/-1}
+
+/* bar rows */
+.bars{display:flex; flex-direction:column; gap:9px}
+.bar-row{display:grid; grid-template-columns:120px 1fr auto; align-items:center; gap:12px; cursor:pointer}
+.bar-row .name{font-size:13px; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.bar-row:hover .name{color:var(--ink)}
+.track{height:22px; background:var(--surface-2); border-radius:6px; position:relative; overflow:hidden}
+.fill{height:100%; border-radius:6px; background:var(--accent); min-width:3px; transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.bar-row .v{font-size:13px; font-variant-numeric:tabular-nums; color:var(--ink); min-width:66px; text-align:right}
+.bar-row .v small{color:var(--ink-3); font-weight:400}
+.bar-row.active .name{color:var(--accent-ink); font-weight:600}
+
+/* vertical bracket chart */
+.vbars{display:flex; align-items:flex-end; gap:10px; height:190px; padding-top:8px}
+.vcol{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:8px; cursor:pointer; height:100%}
+.vcol .vfill{width:100%; max-width:52px; background:var(--accent); border-radius:6px 6px 3px 3px; min-height:3px; transition:height .5s cubic-bezier(.2,.8,.2,1)}
+.vcol .vlabel{font-size:11px; color:var(--ink-2); text-align:center; white-space:nowrap}
+.vcol .vval{font-size:12px; font-weight:600; font-variant-numeric:tabular-nums}
+.vcol:hover .vfill{filter:brightness(1.06)}
+
+/* donut */
+.donut-wrap{display:flex; gap:20px; align-items:center; flex-wrap:wrap}
+.donut-wrap svg{flex:0 0 auto}
+.legend{display:flex; flex-direction:column; gap:7px; flex:1; min-width:150px}
+.legend .li{display:flex; align-items:center; gap:9px; font-size:13px; cursor:pointer; padding:2px 4px; border-radius:6px}
+.legend .li:hover{background:var(--surface-2)}
+.legend .sw{width:11px;height:11px;border-radius:3px; flex:0 0 auto}
+.legend .li .lv{margin-left:auto; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.arc{cursor:pointer; transition:opacity .12s}
+.arc:hover{opacity:.82}
+
+/* availability rows */
+.avail-row{display:grid; grid-template-columns:120px 1fr auto; gap:12px; align-items:center; margin-bottom:10px; cursor:pointer}
+.avail-row .name{font-size:13px; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.stack{height:20px; display:flex; border-radius:6px; overflow:hidden; background:var(--surface-2)}
+.stack .in{background:var(--good)} .stack .out{background:var(--bad)}
+.stack span{height:100%}
+.avail-row .pct{font-size:12.5px; font-variant-numeric:tabular-nums; min-width:74px; text-align:right; color:var(--ink-2)}
+.avail-row .pct.flag{color:var(--bad); font-weight:600}
+
+/* insights */
+.insights{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px}
+.insight{border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:10px; padding:12px 14px; background:var(--surface); cursor:pointer; transition:transform .12s,box-shadow .12s}
+.insight:hover{transform:translateY(-2px); box-shadow:var(--shadow)}
+.insight.warn{border-left-color:var(--warn)} .insight.bad{border-left-color:var(--bad)} .insight.good{border-left-color:var(--good)}
+.insight .it{font-size:13.5px; font-weight:600; margin-bottom:3px}
+.insight .id{font-size:12.5px; color:var(--ink-2)}
+.insight .cta{font-size:11.5px; color:var(--accent-ink); font-weight:600; margin-top:8px; display:inline-flex; gap:4px; align-items:center}
+
+/* section head */
+.sec-head{display:flex; align-items:baseline; gap:12px; margin:28px 0 14px}
+.sec-head h2{font-family:var(--font-display); font-size:22px; font-weight:600}
+.sec-head .line{flex:1; height:1px; background:var(--line)}
+.sec-head .hint{font-size:12px; color:var(--ink-3)}
+
+/* products */
+.prodgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:14px}
+.prod{background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; display:flex; flex-direction:column; text-decoration:none; transition:transform .12s,border-color .12s}
+.prod:hover{transform:translateY(-3px); border-color:var(--line-strong)}
+.prod .thumb{aspect-ratio:4/3; display:grid; place-items:center; position:relative}
+.prod .thumb .mono{font-family:var(--font-display); font-size:30px; font-weight:600; color:#fff; opacity:.9; text-shadow:0 1px 3px rgba(0,0,0,.25)}
+.prod .oos{position:absolute; inset:0; background:color-mix(in srgb,var(--surface) 55%,transparent); display:grid; place-items:center}
+.prod .oos span{background:var(--bad); color:#fff; font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; letter-spacing:.03em}
+.prod .sale-tag{position:absolute; top:8px; left:8px; background:var(--gold); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px; font-variant-numeric:tabular-nums}
+.prod .body{padding:10px 12px 12px; display:flex; flex-direction:column; gap:6px; flex:1}
+.prod .cat{font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; font-weight:700}
+.prod .t{font-size:13px; line-height:1.35; color:var(--ink); flex:1}
+.prod .price{display:flex; align-items:baseline; gap:7px; font-variant-numeric:tabular-nums}
+.prod .price .now{font-size:15px; font-weight:700}
+.prod .price .was{font-size:12px; color:var(--ink-3); text-decoration:line-through}
+.prod .price .now.sale{color:var(--accent-ink)}
+.prod .meta{display:flex; align-items:center; gap:7px; font-size:11px; color:var(--ink-3)}
+.prod .meta .swatch{width:10px;height:10px;border-radius:50%;border:1px solid var(--line-strong); flex:0 0 auto}
+.prod .new-badge{position:absolute; top:8px; right:8px; background:var(--good); color:#fff; font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; letter-spacing:.04em}
+.field[hidden]{display:none}
+.swatch-inline{display:inline-block; width:10px;height:10px;border-radius:50%;border:1px solid var(--line-strong); vertical-align:middle; margin-right:5px}
+
+.empty{text-align:center; padding:50px 20px; color:var(--ink-3)}
+.viewtoggle{display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; margin-left:auto}
+.viewtoggle button{background:var(--surface); border:none; padding:6px 12px; font-size:12.5px; color:var(--ink-2)}
+.viewtoggle button.on{background:var(--accent); color:#fff}
+
+/* table */
+table.data{width:100%; border-collapse:collapse; font-size:13px}
+table.data th, table.data td{text-align:left; padding:8px 10px; border-bottom:1px solid var(--line)}
+table.data th{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3); position:sticky; top:64px; background:var(--surface)}
+table.data td.n{text-align:right; font-variant-numeric:tabular-nums}
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface)}
+
+/* tooltip */
+#tip{position:fixed; z-index:60; pointer-events:none; background:var(--ink); color:var(--bg);
+  font-size:12px; padding:7px 10px; border-radius:8px; box-shadow:var(--shadow); opacity:0; transition:opacity .1s; max-width:240px}
+#tip b{color:var(--bg)}
+#tip .tk{opacity:.7}
+
+/* chips (active filters) */
+.chips{display:flex; flex-wrap:wrap; gap:7px; margin:-6px 0 14px}
+.chip{display:inline-flex; align-items:center; gap:6px; background:var(--accent-soft); color:var(--accent-ink);
+  border-radius:999px; padding:4px 6px 4px 11px; font-size:12.5px; font-weight:600}
+.chip button{background:none; border:none; color:inherit; font-size:15px; line-height:1; width:18px; height:18px; border-radius:50%}
+.chip button:hover{background:color-mix(in srgb,var(--accent) 20%,transparent)}
+
+footer{color:var(--ink-3); font-size:12px; text-align:center; padding:30px 0 40px}
+footer a{color:var(--accent-ink)}
+
+@media (max-width:900px){
+  .kpis{grid-template-columns:repeat(3,1fr)}
+  .grid{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .field.search input{width:150px}
+  .bar-row,.avail-row{grid-template-columns:96px 1fr auto}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><span class="name">Katie Loxton</span><span class="sub">Product Intelligence</span></div>
+    <div class="spacer"></div>
+    <div class="src-badge" id="srcBadge"><span class="src-dot"></span><span id="srcText">Sample data</span></div>
+    <button class="iconbtn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">◐</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="banner" id="banner">
+    <div>
+      <b>Preview with sample data.</b> This is a working demo populated with a representative Katie Loxton range.
+      To load the live catalogue, run <code>node scripts/scrape.mjs</code> (needs open web access) — it writes
+      <code>data/products.json</code> and this dashboard picks it up automatically.
+    </div>
+    <button class="x" id="bannerX" aria-label="Dismiss">×</button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters" id="filters">
+    <label class="field search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="q" type="search" placeholder="Search products…" autocomplete="off" />
+    </label>
+    <label class="field" id="brandField" hidden><select id="fBrand"><option value="">All brands</option></select></label>
+    <label class="field"><select id="fCat"><option value="">All categories</option></select></label>
+    <label class="field"><select id="fBracket"><option value="">All prices</option></select></label>
+    <label class="field"><select id="fOccasion"><option value="">All occasions</option></select></label>
+    <label class="field"><select id="fColour"><option value="">All colours</option></select></label>
+    <label class="field"><select id="fMaterial"><option value="">All materials</option></select></label>
+    <label class="field"><select id="fStock">
+      <option value="">All availability</option>
+      <option value="in">In stock</option>
+      <option value="out">Out of stock</option>
+    </select></label>
+    <label class="toggle"><input type="checkbox" id="fSale" /> On sale only</label>
+    <label class="toggle"><input type="checkbox" id="fNew" /> New in</label>
+    <button class="btn-reset" id="reset">Reset</button>
+    <span class="count"><b id="shownN">0</b> of <b id="totalN">0</b> products</span>
+  </div>
+  <div class="chips" id="chips"></div>
+
+  <!-- KPIs -->
+  <div class="kpis" id="kpis"></div>
+
+  <!-- Insights -->
+  <div class="sec-head"><h2>What to notice</h2><span class="line"></span><span class="hint">Tap a card to drill in</span></div>
+  <div class="insights" id="insights"></div>
+
+  <!-- Charts -->
+  <div class="sec-head"><h2>The range at a glance</h2><span class="line"></span></div>
+  <div class="grid">
+    <div class="card">
+      <h2>Assortment by category</h2>
+      <div class="desc">How many styles sit in each part of the range. Click a bar to filter.</div>
+      <div class="bars" id="catBars"></div>
+    </div>
+    <div class="card">
+      <h2>Category share</h2>
+      <div class="desc">Where the breadth of the range is concentrated.</div>
+      <div class="donut-wrap"><div id="donut"></div><div class="legend" id="donutLegend"></div></div>
+    </div>
+    <div class="card">
+      <h2>Price architecture</h2>
+      <div class="desc">Distribution of styles across price brackets. Click a column to filter.</div>
+      <div class="vbars" id="priceBars"></div>
+    </div>
+    <div class="card">
+      <h2>Availability</h2>
+      <div class="desc">In stock vs out of stock by category — watch for gaps in key lines.</div>
+      <div id="availChart"></div>
+    </div>
+    <div class="card">
+      <h2>By gifting occasion</h2>
+      <div class="desc">The range cut by who it's for — Katie Loxton's signature lens. Click to filter.</div>
+      <div class="bars" id="occBars"></div>
+    </div>
+    <div class="card">
+      <h2>Colour palette</h2>
+      <div class="desc">How the range is weighted across colourways.</div>
+      <div class="bars" id="colBars"></div>
+    </div>
+    <div class="card span2">
+      <h2>Newness — added over time</h2>
+      <div class="desc">How fresh the range is. Click a band to see those styles.</div>
+      <div class="vbars" id="newBars"></div>
+    </div>
+  </div>
+
+  <!-- Products -->
+  <div class="sec-head">
+    <h2 id="prodTitle">Products</h2><span class="line"></span>
+    <div class="viewtoggle"><button id="vGrid" class="on">Grid</button><button id="vTable">Table</button></div>
+  </div>
+  <div id="prodView"></div>
+
+  <footer>
+    Data source: <span id="footSource">sample</span> · Generated <span id="footDate">—</span> ·
+    Built as a product-intelligence PWA · <a href="https://www.katieloxton.com" target="_blank" rel="noopener">katieloxton.com</a>
+  </footer>
+</main>
+
+<div id="tip"></div>
+
+<!-- Seed sample data: [title, category, price, compareAt(0=none), available(1/0)] -->
+<script type="application/json" id="seed">
+{"generatedAt":"2026-07-09","source":"sample","currency":"GBP","brands":["Katie Loxton"],"count":51,"products":[{"title":"Kayla Quilted Cross Body Bag","handle":"kayla-quilted-cross-body-bag","url":"https://www.katieloxton.com/products/kayla-quilted-cross-body-bag","brand":"Katie Loxton","category":"Bags","price":59.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-06-21","image":null},{"title":"Fern Woven Tote Bag","handle":"fern-woven-tote-bag","url":"https://www.katieloxton.com/products/fern-woven-tote-bag","brand":"Katie Loxton","category":"Bags","price":74.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Woven","createdAt":"2025-11-28","image":null},{"title":"Loua Boxy Grab Bag","handle":"loua-boxy-grab-bag","url":"https://www.katieloxton.com/products/loua-boxy-grab-bag","brand":"Katie Loxton","category":"Bags","price":54.99,"compareAt":74.99,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-02-23","image":null},{"title":"Celine Backpack","handle":"celine-backpack","url":"https://www.katieloxton.com/products/celine-backpack","brand":"Katie Loxton","category":"Bags","price":89.99,"compareAt":0,"available":false,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-08-04","image":null},{"title":"Aria Shoulder Bag","handle":"aria-shoulder-bag","url":"https://www.katieloxton.com/products/aria-shoulder-bag","brand":"Katie Loxton","category":"Bags","price":64.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-05-16","image":null},{"title":"Weekend Holdall","handle":"weekend-holdall","url":"https://www.katieloxton.com/products/weekend-holdall","brand":"Katie Loxton","category":"Bags","price":84.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-10-27","image":null},{"title":"Effie Bucket Bag","handle":"effie-bucket-bag","url":"https://www.katieloxton.com/products/effie-bucket-bag","brand":"Katie Loxton","category":"Bags","price":49.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-01-17","image":null},{"title":"Mila Mini Cross Body","handle":"mila-mini-cross-body","url":"https://www.katieloxton.com/products/mila-mini-cross-body","brand":"Katie Loxton","category":"Bags","price":44.99,"compareAt":0,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-05-24","image":null},{"title":"Demi Structured Handbag","handle":"demi-structured-handbag","url":"https://www.katieloxton.com/products/demi-structured-handbag","brand":"Katie Loxton","category":"Bags","price":69.99,"compareAt":89.99,"available":true,"colour":"Tan","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-11-12","image":null},{"title":"Isla Straw Basket Bag","handle":"isla-straw-basket-bag","url":"https://www.katieloxton.com/products/isla-straw-basket-bag","brand":"Katie Loxton","category":"Bags","price":39.99,"compareAt":0,"available":false,"colour":"Tan","occasion":"Everyday","material":"Straw","createdAt":"2025-08-26","image":null},{"title":"Birdie Large Fold-Out Purse","handle":"birdie-large-fold-out-purse","url":"https://www.katieloxton.com/products/birdie-large-fold-out-purse","brand":"Katie Loxton","category":"Purses & Wallets","price":34.99,"compareAt":0,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-12-21","image":null},{"title":"Casey Slim Card Holder","handle":"casey-slim-card-holder","url":"https://www.katieloxton.com/products/casey-slim-card-holder","brand":"Katie Loxton","category":"Purses & Wallets","price":24.99,"compareAt":0,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-03-18","image":null},{"title":"Alexa Coin Purse","handle":"alexa-coin-purse","url":"https://www.katieloxton.com/products/alexa-coin-purse","brand":"Katie Loxton","category":"Purses & Wallets","price":22.99,"compareAt":0,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-02-08","image":null},{"title":"Fold-Out Travel Wallet","handle":"fold-out-travel-wallet","url":"https://www.katieloxton.com/products/fold-out-travel-wallet","brand":"Katie Loxton","category":"Purses & Wallets","price":39.99,"compareAt":0,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-04-16","image":null},{"title":"Zip Around Matinee Purse","handle":"zip-around-matinee-purse","url":"https://www.katieloxton.com/products/zip-around-matinee-purse","brand":"Katie Loxton","category":"Purses & Wallets","price":34.99,"compareAt":44.99,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2026-01-23","image":null},{"title":"Everyday Card Holder","handle":"everyday-card-holder","url":"https://www.katieloxton.com/products/everyday-card-holder","brand":"Katie Loxton","category":"Purses & Wallets","price":19.99,"compareAt":0,"available":true,"colour":"Black","occasion":"Everyday","material":"Vegan Leather","createdAt":"2025-09-22","image":null},{"title":"Set of 3 Cosmetic Bags","handle":"set-of-3-cosmetic-bags","url":"https://www.katieloxton.com/products/set-of-3-cosmetic-bags","brand":"Katie Loxton","category":"Accessories","price":29.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Mixed","createdAt":"2025-07-16","image":null},{"title":"Wash Bag - Blush","handle":"wash-bag-blush","url":"https://www.katieloxton.com/products/wash-bag-blush","brand":"Katie Loxton","category":"Accessories","price":29.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Mixed","createdAt":"2026-03-05","image":null},{"title":"Tortoiseshell Sunglasses","handle":"tortoiseshell-sunglasses","url":"https://www.katieloxton.com/products/tortoiseshell-sunglasses","brand":"Katie Loxton","category":"Accessories","price":34.99,"compareAt":0,"available":true,"colour":"Tortoiseshell","occasion":"Everyday","material":"Acetate","createdAt":"2025-03-22","image":null},{"title":"Blanket Scarf - Sage","handle":"blanket-scarf-sage","url":"https://www.katieloxton.com/products/blanket-scarf-sage","brand":"Katie Loxton","category":"Accessories","price":29.99,"compareAt":39.99,"available":true,"colour":"Sage","occasion":"Everyday","material":"Cotton","createdAt":"2025-11-24","image":null},{"title":"Bee Keyring Charm","handle":"bee-keyring-charm","url":"https://www.katieloxton.com/products/bee-keyring-charm","brand":"Katie Loxton","category":"Accessories","price":9.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Metal","createdAt":"2026-06-21","image":null},{"title":"Card Holder Keyring","handle":"card-holder-keyring","url":"https://www.katieloxton.com/products/card-holder-keyring","brand":"Katie Loxton","category":"Accessories","price":14.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Metal","createdAt":"2025-11-28","image":null},{"title":"Travel Pouch Set","handle":"travel-pouch-set","url":"https://www.katieloxton.com/products/travel-pouch-set","brand":"Katie Loxton","category":"Accessories","price":24.99,"compareAt":0,"available":false,"colour":"Blush","occasion":"Everyday","material":"Mixed","createdAt":"2026-02-23","image":null},{"title":"Passport Holder","handle":"passport-holder","url":"https://www.katieloxton.com/products/passport-holder","brand":"Katie Loxton","category":"Accessories","price":19.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Mixed","createdAt":"2025-08-04","image":null},{"title":"Hair Claw Clip Set","handle":"hair-claw-clip-set","url":"https://www.katieloxton.com/products/hair-claw-clip-set","brand":"Katie Loxton","category":"Accessories","price":12.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Everyday","material":"Metal","createdAt":"2026-05-16","image":null},{"title":"Umbrella - Spot Print","handle":"umbrella-spot-print","url":"https://www.katieloxton.com/products/umbrella-spot-print","brand":"Katie Loxton","category":"Accessories","price":22.99,"compareAt":0,"available":true,"colour":"Monochrome","occasion":"Everyday","material":"Mixed","createdAt":"2025-10-27","image":null},{"title":"Waterproof Chain Necklace","handle":"waterproof-chain-necklace","url":"https://www.katieloxton.com/products/waterproof-chain-necklace","brand":"Katie Loxton","category":"Jewellery","price":29.99,"compareAt":0,"available":true,"colour":"Gold","occasion":"Everyday","material":"Metal","createdAt":"2026-01-17","image":null},{"title":"Bee Stud Earrings","handle":"bee-stud-earrings","url":"https://www.katieloxton.com/products/bee-stud-earrings","brand":"Katie Loxton","category":"Jewellery","price":19.99,"compareAt":0,"available":true,"colour":"Gold","occasion":"Everyday","material":"Metal","createdAt":"2025-05-24","image":null},{"title":"Friendship Bracelet","handle":"friendship-bracelet","url":"https://www.katieloxton.com/products/friendship-bracelet","brand":"Katie Loxton","category":"Jewellery","price":24.99,"compareAt":0,"available":true,"colour":"Gold","occasion":"Best Friend","material":"Metal","createdAt":"2025-11-12","image":null},{"title":"Birthstone Necklace","handle":"birthstone-necklace","url":"https://www.katieloxton.com/products/birthstone-necklace","brand":"Katie Loxton","category":"Jewellery","price":34.99,"compareAt":0,"available":true,"colour":"Gold","occasion":"Birthday","material":"Metal","createdAt":"2025-08-26","image":null},{"title":"Gold Hoop Earrings","handle":"gold-hoop-earrings","url":"https://www.katieloxton.com/products/gold-hoop-earrings","brand":"Katie Loxton","category":"Jewellery","price":22.99,"compareAt":0,"available":false,"colour":"Gold","occasion":"Everyday","material":"Metal","createdAt":"2025-12-21","image":null},{"title":"Layered Charm Bracelet","handle":"layered-charm-bracelet","url":"https://www.katieloxton.com/products/layered-charm-bracelet","brand":"Katie Loxton","category":"Jewellery","price":39.99,"compareAt":49.99,"available":true,"colour":"Gold","occasion":"Everyday","material":"Metal","createdAt":"2026-03-18","image":null},{"title":"Initial Pendant Necklace","handle":"initial-pendant-necklace","url":"https://www.katieloxton.com/products/initial-pendant-necklace","brand":"Katie Loxton","category":"Jewellery","price":27.99,"compareAt":0,"available":true,"colour":"Gold","occasion":"Everyday","material":"Metal","createdAt":"2025-02-08","image":null},{"title":"Sentiment Candle - Best Friend","handle":"sentiment-candle-best-friend","url":"https://www.katieloxton.com/products/sentiment-candle-best-friend","brand":"Katie Loxton","category":"Home & Fragrance","price":19.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Best Friend","material":"Wax","createdAt":"2026-04-16","image":null},{"title":"Reed Diffuser - Pomelo & Lychee","handle":"reed-diffuser-pomelo-and-lychee","url":"https://www.katieloxton.com/products/reed-diffuser-pomelo-and-lychee","brand":"Katie Loxton","category":"Home & Fragrance","price":24.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Everyday","material":"Glass","createdAt":"2026-01-23","image":null},{"title":"Wax Melts Gift Set","handle":"wax-melts-gift-set","url":"https://www.katieloxton.com/products/wax-melts-gift-set","brand":"Katie Loxton","category":"Home & Fragrance","price":12.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Everyday","material":"Wax","createdAt":"2025-09-22","image":null},{"title":"Hand Cream Trio","handle":"hand-cream-trio","url":"https://www.katieloxton.com/products/hand-cream-trio","brand":"Katie Loxton","category":"Home & Fragrance","price":18.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Everyday","material":"Mixed","createdAt":"2025-07-16","image":null},{"title":"Ceramic Trinket Dish","handle":"ceramic-trinket-dish","url":"https://www.katieloxton.com/products/ceramic-trinket-dish","brand":"Katie Loxton","category":"Home & Fragrance","price":14.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Everyday","material":"Ceramic","createdAt":"2026-03-05","image":null},{"title":"Sentiment Photo Frame","handle":"sentiment-photo-frame","url":"https://www.katieloxton.com/products/sentiment-photo-frame","brand":"Katie Loxton","category":"Home & Fragrance","price":16.99,"compareAt":0,"available":true,"colour":"Cream","occasion":"Everyday","material":"Ceramic","createdAt":"2025-03-22","image":null},{"title":"Travel Tin Candle","handle":"travel-tin-candle","url":"https://www.katieloxton.com/products/travel-tin-candle","brand":"Katie Loxton","category":"Home & Fragrance","price":9.99,"compareAt":12.99,"available":true,"colour":"Cream","occasion":"Everyday","material":"Wax","createdAt":"2025-11-24","image":null},{"title":"Perfect Pamper Gift Set","handle":"perfect-pamper-gift-set","url":"https://www.katieloxton.com/products/perfect-pamper-gift-set","brand":"Katie Loxton","category":"Gifts","price":29.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Treat / Self","material":"Mixed","createdAt":"2026-06-21","image":null},{"title":"New Baby Gift Box","handle":"new-baby-gift-box","url":"https://www.katieloxton.com/products/new-baby-gift-box","brand":"Katie Loxton","category":"Gifts","price":34.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"New Baby","material":"Mixed","createdAt":"2025-11-28","image":null},{"title":"Prosecco Pamper Set","handle":"prosecco-pamper-set","url":"https://www.katieloxton.com/products/prosecco-pamper-set","brand":"Katie Loxton","category":"Gifts","price":24.99,"compareAt":0,"available":false,"colour":"Blush","occasion":"Treat / Self","material":"Mixed","createdAt":"2026-02-23","image":null},{"title":"Thank You Gift Bag","handle":"thank-you-gift-bag","url":"https://www.katieloxton.com/products/thank-you-gift-bag","brand":"Katie Loxton","category":"Gifts","price":12.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Thank You","material":"Mixed","createdAt":"2025-08-04","image":null},{"title":"Bridesmaid Sentiment Box","handle":"bridesmaid-sentiment-box","url":"https://www.katieloxton.com/products/bridesmaid-sentiment-box","brand":"Katie Loxton","category":"Gifts","price":27.99,"compareAt":0,"available":true,"colour":"Blush","occasion":"Wedding","material":"Mixed","createdAt":"2026-05-16","image":null},{"title":"Perfect Pouch - Mum","handle":"perfect-pouch-mum","url":"https://www.katieloxton.com/products/perfect-pouch-mum","brand":"Katie Loxton","category":"Perfect Pouches","price":9.99,"compareAt":0,"available":true,"colour":"Sage","occasion":"Mum","material":"Cotton","createdAt":"2025-10-27","image":null},{"title":"Perfect Pouch - Bride To Be","handle":"perfect-pouch-bride-to-be","url":"https://www.katieloxton.com/products/perfect-pouch-bride-to-be","brand":"Katie Loxton","category":"Perfect Pouches","price":9.99,"compareAt":0,"available":true,"colour":"Sage","occasion":"Wedding","material":"Cotton","createdAt":"2026-01-17","image":null},{"title":"Perfect Pouch - Best Friend","handle":"perfect-pouch-best-friend","url":"https://www.katieloxton.com/products/perfect-pouch-best-friend","brand":"Katie Loxton","category":"Perfect Pouches","price":9.99,"compareAt":0,"available":true,"colour":"Sage","occasion":"Best Friend","material":"Cotton","createdAt":"2025-05-24","image":null},{"title":"Perfect Pouch - Thank You","handle":"perfect-pouch-thank-you","url":"https://www.katieloxton.com/products/perfect-pouch-thank-you","brand":"Katie Loxton","category":"Perfect Pouches","price":7.99,"compareAt":9.99,"available":true,"colour":"Sage","occasion":"Thank You","material":"Cotton","createdAt":"2025-11-12","image":null},{"title":"Perfect Pouch - New Baby","handle":"perfect-pouch-new-baby","url":"https://www.katieloxton.com/products/perfect-pouch-new-baby","brand":"Katie Loxton","category":"Perfect Pouches","price":9.99,"compareAt":0,"available":true,"colour":"Sage","occasion":"New Baby","material":"Cotton","createdAt":"2025-08-26","image":null},{"title":"Perfect Pouch - Happy Birthday","handle":"perfect-pouch-happy-birthday","url":"https://www.katieloxton.com/products/perfect-pouch-happy-birthday","brand":"Katie Loxton","category":"Perfect Pouches","price":9.99,"compareAt":0,"available":true,"colour":"Sage","occasion":"Birthday","material":"Cotton","createdAt":"2025-12-21","image":null}]}
+</script>
+
+<script>
+"use strict";
+/* ---------------- Config ---------------- */
+const CATEGORY_ORDER = ["Bags","Purses & Wallets","Accessories","Jewellery","Home & Fragrance","Gifts","Perfect Pouches"];
+const CAT_VAR = {}; CATEGORY_ORDER.forEach((c,i)=>CAT_VAR[c]="--c"+(i%7));
+const BRACKETS = [
+  {key:"u10", label:"Under £10", test:p=>p<10},
+  {key:"10-20", label:"£10–£20", test:p=>p>=10&&p<20},
+  {key:"20-30", label:"£20–£30", test:p=>p>=20&&p<30},
+  {key:"30-50", label:"£30–£50", test:p=>p>=30&&p<50},
+  {key:"50-75", label:"£50–£75", test:p=>p>=50&&p<75},
+  {key:"75+", label:"£75+", test:p=>p>=75},
+];
+const NEW_DAYS = 90;
+const RECENCY = [
+  {key:"n30", label:"≤ 30 days", test:d=>d<=30},
+  {key:"n90", label:"31–90 days", test:d=>d>30&&d<=90},
+  {key:"n180", label:"3–6 months", test:d=>d>90&&d<=180},
+  {key:"n365", label:"6–12 months", test:d=>d>180&&d<=365},
+  {key:"n365p", label:"12 months+", test:d=>d>365},
+];
+const COLOUR_HEX = {Black:"#3a3330", White:"#f1eee7", Cream:"#ece3d2", Gold:"#c9a24a", Silver:"#b8bcc2",
+  Pink:"#e39ab0", Blush:"#e7b7c0", Green:"#8aa17a", Sage:"#a9b99a", Blue:"#4f6f9f", Navy:"#2f3b52",
+  "Tan/Brown":"#b07b4f", Tan:"#c69c6d", Grey:"#9a9a9a", Red:"#b23b39", Purple:"#8a6ea8",
+  Multi:"#b9a99c", Other:"#c9bfb6", Mixed:"#b9a99c", Tortoiseshell:"#7a4a24", Monochrome:"#6b6b6b"};
+const colHex = c => COLOUR_HEX[c] || "#c9bfb6";
+// Collapse the raw ~180 colourway strings into a tidy, chartable set.
+function canonicalColour(raw){
+  if(!raw) return "Mixed";
+  const s = String(raw).toLowerCase();
+  if(/rose gold|\bgold\b/.test(s)) return "Gold";
+  if(/silver|metallic|pewter/.test(s)) return "Silver";
+  if(/blush/.test(s)) return "Blush";
+  if(/pink|rose|coral|fuchsia/.test(s)) return "Pink";
+  if(/sage/.test(s)) return "Sage";
+  if(/green|mint|khaki|olive|emerald/.test(s)) return "Green";
+  if(/navy/.test(s)) return "Navy";
+  if(/blue|denim|teal|aqua/.test(s)) return "Blue";
+  if(/tan|brown|camel|taupe|chocolate|coffee|caramel|mocha|biscuit/.test(s)) return "Tan/Brown";
+  if(/black|charcoal|\bjet\b|onyx/.test(s)) return "Black";
+  if(/cream|ivory|off.?white|natural|oat|stone|sand|nude|beige/.test(s)) return "Cream";
+  if(/white/.test(s)) return "White";
+  if(/grey|gray|silver grey/.test(s)) return "Grey";
+  if(/red|burgundy|wine|cherry/.test(s)) return "Red";
+  if(/lilac|purple|lavender|plum|mauve|violet/.test(s)) return "Purple";
+  if(/multi|rainbow|print|floral|leopard|animal|stripe|spot|tartan|check/.test(s)) return "Multi";
+  if(/ & | and |,|\//.test(String(raw))) return "Multi";
+  return "Other";
+}
+const GBP = n => "£"+n.toFixed(2);
+const GBP0 = n => "£"+Math.round(n);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const catColor = c => css(CAT_VAR[c]||"--accent");
+
+/* ---------------- Load data ---------------- */
+function normalise(raw){
+  const isTuple = Array.isArray(raw.products[0]);
+  const now = raw.generatedAt ? new Date(raw.generatedAt) : new Date();
+  return raw.products.map((p,i)=>{
+    let o;
+    if(isTuple){
+      const [title,category,price,cmp,avail] = p;
+      o = {title,category,price,compareAt:cmp||0,available:!!avail,
+           handle:slug(title), url:"https://www.katieloxton.com/products/"+slug(title)};
+    } else {
+      o = {title:p.title, category:p.category||"Other", price:+p.price,
+           compareAt:+(p.compareAt||0), available:p.available!==false,
+           handle:p.handle||slug(p.title), url:p.url||("https://www.katieloxton.com/products/"+(p.handle||slug(p.title))),
+           image:p.image||null, tags:p.tags||[],
+           brand:p.brand||"Katie Loxton", colour:canonicalColour(p.colour),
+           occasion:p.occasion||"Everyday", material:p.material||"Mixed", createdAt:p.createdAt||null};
+    }
+    o.brand = o.brand||"Katie Loxton"; o.colour=o.colour||"Mixed";
+    o.occasion=o.occasion||"Everyday"; o.material=o.material||"Mixed";
+    o.id=i;
+    o.onSale = o.compareAt>o.price;
+    o.discountPct = o.onSale ? Math.round((1-o.price/o.compareAt)*100) : 0;
+    o.bracket = (BRACKETS.find(b=>b.test(o.price))||BRACKETS[0]).key;
+    o.ageDays = o.createdAt ? Math.max(0,Math.round((now-new Date(o.createdAt))/86400000)) : null;
+    o.isNew = o.ageDays!=null && o.ageDays<=NEW_DAYS;
+    o.recency = o.ageDays!=null ? (RECENCY.find(r=>r.test(o.ageDays))||RECENCY[RECENCY.length-1]).key : null;
+    return o;
+  });
+}
+const slug = s => s.toLowerCase().replace(/&/g,"and").replace(/[^\w]+/g,"-").replace(/^-|-$/g,"");
+
+let DATA={}, PRODUCTS=[];
+async function boot(){
+  let raw;
+  try{
+    const r = await fetch("./data/products.json",{cache:"no-store"});
+    if(!r.ok) throw 0;
+    raw = await r.json(); DATA.live=true;
+  }catch(e){
+    raw = JSON.parse(document.getElementById("seed").textContent); DATA.live=false;
+  }
+  DATA.meta = raw;
+  PRODUCTS = normalise(raw);
+  // sort categories present by fixed order
+  DATA.cats = CATEGORY_ORDER.filter(c=>PRODUCTS.some(p=>p.category===c))
+              .concat([...new Set(PRODUCTS.map(p=>p.category))].filter(c=>!CATEGORY_ORDER.includes(c)));
+  const facet = k => [...new Set(PRODUCTS.map(p=>p[k]).filter(Boolean))].sort();
+  DATA.occasions = facet("occasion"); DATA.colours = facet("colour");
+  DATA.materials = facet("material"); DATA.brands = facet("brand");
+  DATA.hasDates = PRODUCTS.some(p=>p.ageDays!=null);
+  setupSource(); setupFilters(); render();
+}
+
+/* ---------------- Source badge ---------------- */
+function setupSource(){
+  const badge=document.getElementById("srcBadge"), txt=document.getElementById("srcText");
+  const date = DATA.meta.generatedAt || "";
+  if(DATA.live){ badge.classList.add("live"); txt.textContent="Live catalogue"; document.getElementById("banner").style.display="none"; }
+  else txt.textContent="Sample data";
+  document.getElementById("footSource").textContent = DATA.live?"live scrape":"sample";
+  document.getElementById("footDate").textContent = date||"—";
+}
+
+/* ---------------- Filters / state ---------------- */
+const state = {q:"", brand:"", cat:"", bracket:"", occasion:"", colour:"", material:"", recency:"", stock:"", sale:false, isNew:false, view:"grid", focus:null};
+const $ = id => document.getElementById(id);
+function fill(id,items,fmt){ const s=$(id); items.forEach(v=>s.append(new Option(fmt?fmt(v):v, v))); }
+function setupFilters(){
+  fill("fCat",DATA.cats); fill("fBracket",BRACKETS.map(b=>b.key),k=>BRACKETS.find(b=>b.key===k).label);
+  fill("fOccasion",DATA.occasions); fill("fColour",DATA.colours); fill("fMaterial",DATA.materials);
+  if(DATA.brands.length>1){ $("brandField").hidden=false; fill("fBrand",DATA.brands);
+    $("fBrand").addEventListener("change",e=>{state.brand=e.target.value; render();}); }
+  if(!DATA.hasDates){ const nl=$("fNew").closest("label"); if(nl) nl.style.display="none"; }
+  $("q").addEventListener("input",e=>{state.q=e.target.value.trim().toLowerCase(); render();});
+  const bind=(id,key)=>$(id).addEventListener("change",e=>{state[key]=e.target.value; render();});
+  bind("fCat","cat"); bind("fBracket","bracket"); bind("fOccasion","occasion");
+  bind("fColour","colour"); bind("fMaterial","material"); bind("fStock","stock");
+  $("fSale").addEventListener("change",e=>{state.sale=e.target.checked; render();});
+  $("fNew").addEventListener("change",e=>{state.isNew=e.target.checked; render();});
+  $("reset").addEventListener("click",resetFilters);
+  $("vGrid").addEventListener("click",()=>{state.view="grid"; render();});
+  $("vTable").addEventListener("click",()=>{state.view="table"; render();});
+}
+function resetFilters(){
+  Object.assign(state,{q:"",brand:"",cat:"",bracket:"",occasion:"",colour:"",material:"",recency:"",stock:"",sale:false,isNew:false});
+  ["q","fBrand","fCat","fBracket","fOccasion","fColour","fMaterial","fStock"].forEach(id=>{const el=$(id); if(el)el.value="";});
+  $("fSale").checked=false; $("fNew").checked=false; render();
+}
+function syncControls(){
+  const set=(id,v)=>{const el=$(id); if(el)el.value=v;};
+  set("fBrand",state.brand); set("fCat",state.cat); set("fBracket",state.bracket);
+  set("fOccasion",state.occasion); set("fColour",state.colour); set("fMaterial",state.material);
+  set("fStock",state.stock); $("fSale").checked=state.sale; $("fNew").checked=state.isNew;
+}
+function filtered(){
+  return PRODUCTS.filter(p=>{
+    if(state.q && !p.title.toLowerCase().includes(state.q) && !p.category.toLowerCase().includes(state.q)) return false;
+    if(state.brand && p.brand!==state.brand) return false;
+    if(state.cat && p.category!==state.cat) return false;
+    if(state.bracket && p.bracket!==state.bracket) return false;
+    if(state.occasion && p.occasion!==state.occasion) return false;
+    if(state.colour && p.colour!==state.colour) return false;
+    if(state.material && p.material!==state.material) return false;
+    if(state.recency && p.recency!==state.recency) return false;
+    if(state.stock==="in" && !p.available) return false;
+    if(state.stock==="out" && p.available) return false;
+    if(state.sale && !p.onSale) return false;
+    if(state.isNew && !p.isNew) return false;
+    return true;
+  });
+}
+
+/* ---------------- Metrics ---------------- */
+function metrics(list){
+  const n=list.length;
+  const inStock=list.filter(p=>p.available).length;
+  const onSale=list.filter(p=>p.onSale).length;
+  const prices=list.map(p=>p.price).sort((a,b)=>a-b);
+  const avg = n? prices.reduce((a,b)=>a+b,0)/n : 0;
+  const med = n? prices[Math.floor(n/2)] : 0;
+  const disc = onSale? Math.round(list.filter(p=>p.onSale).reduce((a,p)=>a+p.discountPct,0)/onSale):0;
+  return {n,inStock,onSale,avg,med,disc,
+    cats:new Set(list.map(p=>p.category)).size,
+    min: prices[0]||0, max: prices[n-1]||0};
+}
+
+/* ---------------- Render ---------------- */
+function render(){
+  syncControls();
+  const list = filtered();
+  const m = metrics(list);
+  document.getElementById("shownN").textContent=list.length;
+  document.getElementById("totalN").textContent=PRODUCTS.length;
+  renderChips();
+  renderKPIs(m,list);
+  renderInsights();
+  renderCatBars(list);
+  renderDonut(list);
+  renderPriceBars(list);
+  renderAvail(list);
+  renderOccasion(list);
+  renderColour(list);
+  renderNewness(list);
+  renderProducts(list);
+}
+
+function renderChips(){
+  const box=document.getElementById("chips"); box.innerHTML="";
+  const add=(label,clear)=>{ const c=document.createElement("span"); c.className="chip";
+    c.innerHTML=`<span>${label}</span>`; const b=document.createElement("button"); b.textContent="×";
+    b.onclick=()=>{clear(); render();}; c.append(b); box.append(c); };
+  if(state.q) add(`“${state.q}”`,()=>{state.q="";document.getElementById("q").value="";});
+  if(state.brand) add(state.brand,()=>state.brand="");
+  if(state.cat) add(state.cat,()=>state.cat="");
+  if(state.bracket) add(BRACKETS.find(b=>b.key===state.bracket).label,()=>state.bracket="");
+  if(state.occasion) add("For: "+state.occasion,()=>state.occasion="");
+  if(state.colour) add(`<span class="swatch-inline" style="background:${colHex(state.colour)}"></span>${state.colour}`,()=>state.colour="");
+  if(state.material) add(state.material,()=>state.material="");
+  if(state.recency) add(RECENCY.find(r=>r.key===state.recency).label,()=>state.recency="");
+  if(state.stock) add(state.stock==="in"?"In stock":"Out of stock",()=>state.stock="");
+  if(state.sale) add("On sale",()=>state.sale=false);
+  if(state.isNew) add("New in",()=>state.isNew=false);
+}
+
+function kpi(label,val,foot,onClick){
+  const d=document.createElement("div"); d.className="kpi"+(onClick?" click":"");
+  d.innerHTML=`<div class="label">${label}</div><div class="val">${val}</div><div class="foot">${foot||""}</div>`;
+  if(onClick) d.onclick=onClick;
+  return d;
+}
+function renderKPIs(m,list){
+  const box=document.getElementById("kpis"); box.innerHTML="";
+  box.append(kpi("Products", m.n, `across ${m.cats} categories`));
+  box.append(kpi("In stock", m.n?Math.round(m.inStock/m.n*100)+"%":"—", `${m.n-m.inStock} out of stock`,
+    ()=>{state.stock=state.stock==="out"?"":"out"; render();}));
+  box.append(kpi("Avg price", m.n?GBP(m.avg):"—", `median ${m.n?GBP(m.med):"—"}`));
+  box.append(kpi("Range", m.n?GBP0(m.min):"—", `up to ${m.n?GBP0(m.max):"—"}`));
+  box.append(kpi("On sale", m.n?Math.round(m.onSale/m.n*100)+"%":"—", m.onSale?`avg ${m.disc}% off`:"nothing reduced",
+    ()=>{state.sale=!state.sale; render();}));
+  const lux = list.filter(p=>p.price>=50).length;
+  box.append(kpi("Premium", lux, `styles £50+`,
+    ()=>{state.bracket=state.bracket==="50-75"?"":"50-75"; render();}));
+  if(DATA.hasDates){
+    const fresh = list.filter(p=>p.isNew).length;
+    box.append(kpi("New in", fresh, `added ≤ ${NEW_DAYS} days`,
+      ()=>{state.isNew=!state.isNew; render();}));
+  }
+}
+
+function barRow(name,value,max,valLabel,active,onClick,tip){
+  const row=document.createElement("div"); row.className="bar-row"+(active?" active":"");
+  const pct = max? (value/max*100):0;
+  row.innerHTML=`<div class="name">${name}</div><div class="track"><div class="fill" style="width:${pct}%"></div></div><div class="v">${valLabel}</div>`;
+  row.onclick=onClick;
+  attachTip(row,tip);
+  return row;
+}
+function renderCatBars(list){
+  const box=document.getElementById("catBars"); box.innerHTML="";
+  const counts=DATA.cats.map(c=>({c, n:list.filter(p=>p.category===c).length,
+    avg:(()=>{const a=list.filter(p=>p.category===c); return a.length?a.reduce((s,p)=>s+p.price,0)/a.length:0;})()}))
+    .filter(x=>x.n>0).sort((a,b)=>b.n-a.n);
+  const max=Math.max(1,...counts.map(x=>x.n));
+  counts.forEach(x=>{
+    const row=barRow(x.c, x.n, max, `${x.n} <small>· ${GBP0(x.avg)}</small>`, state.cat===x.c,
+      ()=>{state.cat = state.cat===x.c?"":x.c; render();},
+      `<b>${x.c}</b><br>${x.n} styles · avg ${GBP(x.avg)}`);
+    row.querySelector(".fill").style.background=`var(${CAT_VAR[x.c]})`;
+    box.append(row);
+  });
+  if(!counts.length) box.innerHTML='<div class="empty">No products match.</div>';
+}
+
+function renderDonut(list){
+  const wrap=document.getElementById("donut"), leg=document.getElementById("donutLegend");
+  const data=DATA.cats.map(c=>({c,n:list.filter(p=>p.category===c).length})).filter(x=>x.n>0);
+  const total=data.reduce((a,x)=>a+x.n,0);
+  const R=64, r=40, cx=76, cy=76; let a0=-Math.PI/2;
+  let paths="";
+  data.forEach(x=>{
+    const frac=x.n/total, a1=a0+frac*Math.PI*2;
+    const gap=0.03; const s=a0+gap/2, e=a1-gap/2;
+    const large=(e-s)>Math.PI?1:0;
+    const x1=cx+R*Math.cos(s), y1=cy+R*Math.sin(s), x2=cx+R*Math.cos(e), y2=cy+R*Math.sin(e);
+    const xi2=cx+r*Math.cos(e), yi2=cy+r*Math.sin(e), xi1=cx+r*Math.cos(s), yi1=cy+r*Math.sin(s);
+    paths+=`<path class="arc" data-cat="${x.c}" d="M${x1} ${y1} A${R} ${R} 0 ${large} 1 ${x2} ${y2} L${xi2} ${yi2} A${r} ${r} 0 ${large} 0 ${xi1} ${yi1} Z" fill="${catColor(x.c)}"/>`;
+    a0=a1;
+  });
+  wrap.innerHTML=`<svg width="152" height="152" viewBox="0 0 152 152">${paths}
+    <text x="76" y="72" text-anchor="middle" font-family="var(--font-display)" font-size="26" font-weight="600" fill="${css('--ink')}">${total}</text>
+    <text x="76" y="90" text-anchor="middle" font-size="10" fill="${css('--ink-3')}" letter-spacing="1">STYLES</text></svg>`;
+  leg.innerHTML="";
+  data.sort((a,b)=>b.n-a.n).forEach(x=>{
+    const li=document.createElement("div"); li.className="li";
+    li.innerHTML=`<span class="sw" style="background:${catColor(x.c)}"></span><span>${x.c}</span><span class="lv">${Math.round(x.n/total*100)}%</span>`;
+    li.onclick=()=>{state.cat=state.cat===x.c?"":x.c; render();};
+    leg.append(li);
+  });
+  wrap.querySelectorAll(".arc").forEach(a=>{
+    const c=a.dataset.cat, n=data.find(d=>d.c===c).n;
+    attachTip(a,`<b>${c}</b><br>${n} styles · ${Math.round(n/total*100)}%`);
+    a.onclick=()=>{state.cat=state.cat===c?"":c; render();};
+  });
+}
+
+function renderPriceBars(list){
+  const box=document.getElementById("priceBars"); box.innerHTML="";
+  const counts=BRACKETS.map(b=>({b, n:list.filter(p=>p.bracket===b.key).length}));
+  const max=Math.max(1,...counts.map(x=>x.n));
+  counts.forEach(x=>{
+    const col=document.createElement("div"); col.className="vcol";
+    const h=x.n? Math.max(4,(x.n/max*140)) : 3;
+    col.innerHTML=`<div class="vval">${x.n||""}</div><div class="vfill" style="height:${h}px;${state.bracket===x.b.key?'background:var(--accent-ink)':''}"></div><div class="vlabel">${x.b.label}</div>`;
+    col.onclick=()=>{state.bracket=state.bracket===x.b.key?"":x.b.key; render();};
+    attachTip(col,`<b>${x.b.label}</b><br>${x.n} styles`);
+    box.append(col);
+  });
+}
+
+function renderAvail(list){
+  const box=document.getElementById("availChart"); box.innerHTML="";
+  const rows=DATA.cats.map(c=>{
+    const a=list.filter(p=>p.category===c); const inn=a.filter(p=>p.available).length;
+    return {c, total:a.length, in:inn, out:a.length-inn};
+  }).filter(x=>x.total>0).sort((a,b)=>(b.out/b.total)-(a.out/a.total));
+  rows.forEach(x=>{
+    const outPct=Math.round(x.out/x.total*100);
+    const row=document.createElement("div"); row.className="avail-row";
+    row.innerHTML=`<div class="name">${x.c}</div>
+      <div class="stack"><span class="in" style="width:${x.in/x.total*100}%"></span><span class="out" style="width:${x.out/x.total*100}%"></span></div>
+      <div class="pct ${outPct>=20?'flag':''}">${x.out}/${x.total} out</div>`;
+    row.onclick=()=>{state.cat=x.c; state.stock=x.out?"out":""; render();};
+    attachTip(row,`<b>${x.c}</b><br>${x.in} in stock · ${x.out} out (${outPct}%)`);
+    box.append(row);
+  });
+  if(!rows.length) box.innerHTML='<div class="empty">No products match.</div>';
+}
+
+/* Generic horizontal-bar facet: groups = [{key,label,n,color}] */
+function facetBars(boxId, groups, activeVal, pick, tipNoun){
+  const box=document.getElementById(boxId); box.innerHTML="";
+  const shown=groups.filter(g=>g.n>0).sort((a,b)=>b.n-a.n);
+  const max=Math.max(1,...shown.map(g=>g.n));
+  shown.forEach(g=>{
+    const row=barRow(g.label, g.n, max, `${g.n}`, activeVal===g.key,
+      ()=>pick(activeVal===g.key?"":g.key),
+      `<b>${g.label}</b><br>${g.n} ${tipNoun}`);
+    if(g.color) row.querySelector(".fill").style.background=g.color;
+    box.append(row);
+  });
+  if(!shown.length) box.innerHTML='<div class="empty">No products match.</div>';
+}
+function renderOccasion(list){
+  const groups=DATA.occasions.map(o=>({key:o,label:o,n:list.filter(p=>p.occasion===o).length,color:"var(--accent)"}));
+  facetBars("occBars",groups,state.occasion,v=>{state.occasion=v; render();},"styles");
+}
+function renderColour(list){
+  const groups=DATA.colours.map(c=>({key:c,label:`<span class="swatch-inline" style="background:${colHex(c)}"></span>${c}`,
+    n:list.filter(p=>p.colour===c).length, color:colHex(c)}));
+  facetBars("colBars",groups,state.colour,v=>{state.colour=v; render();},"styles");
+}
+function renderNewness(list){
+  const box=document.getElementById("newBars"); box.innerHTML="";
+  if(!DATA.hasDates){ box.innerHTML='<div class="empty">Newness needs product dates — available once the live catalogue is loaded.</div>'; return; }
+  const counts=RECENCY.map(r=>({r, n:list.filter(p=>p.recency===r.key).length}));
+  const max=Math.max(1,...counts.map(x=>x.n));
+  counts.forEach(x=>{
+    const col=document.createElement("div"); col.className="vcol";
+    const h=x.n? Math.max(4,(x.n/max*140)) : 3;
+    const isNewBand = x.r.key==="n30"||x.r.key==="n90";
+    col.innerHTML=`<div class="vval">${x.n||""}</div><div class="vfill" style="height:${h}px;${state.recency===x.r.key?'background:var(--accent-ink)':(isNewBand?'background:var(--good)':'')}"></div><div class="vlabel">${x.r.label}</div>`;
+    col.onclick=()=>{state.recency=state.recency===x.r.key?"":x.r.key; render();};
+    attachTip(col,`<b>${x.r.label}</b><br>${x.n} styles`);
+    box.append(col);
+  });
+}
+
+/* ---------------- Insights ---------------- */
+function renderInsights(){
+  const box=document.getElementById("insights"); box.innerHTML="";
+  const all=PRODUCTS; const items=[];
+  // out of stock hotspot
+  const byCat=DATA.cats.map(c=>{const a=all.filter(p=>p.category===c); return {c,total:a.length,out:a.filter(p=>!p.available).length};}).filter(x=>x.total);
+  const worst=[...byCat].sort((a,b)=>(b.out/b.total)-(a.out/a.total))[0];
+  if(worst && worst.out) items.push({t:`${worst.c}: ${Math.round(worst.out/worst.total*100)}% out of stock`,
+    d:`${worst.out} of ${worst.total} styles unavailable — the biggest availability gap in the range.`,
+    cta:"See the gaps", cls:worst.out/worst.total>=0.2?"bad":"warn",
+    act:()=>{resetFilters(); state.cat=worst.c; state.stock="out";}});
+  // premium tier
+  const prem=all.filter(p=>p.price>=75).length;
+  if(prem) items.push({t:`${prem} premium styles at £75+`, d:`The top of the range — worth checking these convert and stay in stock.`,
+    cta:"View premium", cls:"good", act:()=>{resetFilters(); state.bracket="75+";}});
+  // sale depth
+  const sale=all.filter(p=>p.onSale);
+  if(sale.length){ const avg=Math.round(sale.reduce((a,p)=>a+p.discountPct,0)/sale.length);
+    items.push({t:`${sale.length} lines reduced, avg ${avg}% off`, d:`Discounting is concentrated — click to review what's on sale and how deep.`,
+    cta:"Review markdowns", cls:"warn", act:()=>{resetFilters(); state.sale=true;}});}
+  // entry price cluster
+  const cheap=all.filter(p=>p.price<10).length;
+  if(cheap) items.push({t:`${cheap} gift-price styles under £10`, d:`Your accessible entry point — strong for impulse & add-on gifting.`,
+    cta:"View entry range", cls:"good", act:()=>{resetFilters(); state.bracket="u10";}});
+  // newness
+  if(DATA.hasDates){
+    const fresh=all.filter(p=>p.isNew).length;
+    if(fresh) items.push({t:`${fresh} new styles in the last ${NEW_DAYS} days`, d:`${Math.round(fresh/all.length*100)}% of the range is fresh — a read on how fast the assortment turns.`,
+      cta:"See what's new", cls:"good", act:()=>{resetFilters(); state.isNew=true;}});
+  }
+  // top gifting occasion (excluding the generic Everyday bucket)
+  const occ={}; all.forEach(p=>{ if(p.occasion&&p.occasion!=="Everyday") occ[p.occasion]=(occ[p.occasion]||0)+1; });
+  const topOcc=Object.entries(occ).sort((a,b)=>b[1]-a[1])[0];
+  if(topOcc) items.push({t:`${topOcc[0]} is the biggest gifting occasion`, d:`${topOcc[1]} styles speak to it — Katie Loxton's occasion-led ranges are a core commercial lever.`,
+    cta:`View ${topOcc[0]} range`, cls:"", act:()=>{resetFilters(); state.occasion=topOcc[0];}});
+
+  items.slice(0,6).forEach(it=>{
+    const d=document.createElement("div"); d.className="insight "+(it.cls||"");
+    d.innerHTML=`<div class="it">${it.t}</div><div class="id">${it.d}</div><div class="cta">${it.cta} →</div>`;
+    d.onclick=()=>{it.act(); render(); document.getElementById("prodTitle").scrollIntoView({behavior:"smooth",block:"start"});};
+    box.append(d);
+  });
+}
+
+/* ---------------- Products ---------------- */
+function renderProducts(list){
+  const title=document.getElementById("prodTitle");
+  const parts=[]; if(state.brand)parts.push(state.brand); if(state.cat)parts.push(state.cat);
+  if(state.bracket)parts.push(BRACKETS.find(b=>b.key===state.bracket).label);
+  if(state.occasion)parts.push("for "+state.occasion); if(state.colour)parts.push(state.colour);
+  if(state.material)parts.push(state.material); if(state.recency)parts.push(RECENCY.find(r=>r.key===state.recency).label);
+  if(state.stock)parts.push(state.stock==="in"?"in stock":"out of stock"); if(state.sale)parts.push("on sale");
+  if(state.isNew)parts.push("new in");
+  title.textContent = parts.length? parts.join(" · ")+` (${list.length})` : `All products (${list.length})`;
+  document.getElementById("vGrid").classList.toggle("on",state.view==="grid");
+  document.getElementById("vTable").classList.toggle("on",state.view==="table");
+  const view=document.getElementById("prodView");
+  if(!list.length){ view.innerHTML='<div class="empty">No products match these filters. <a href="#" onclick="resetFilters();return false" style="color:var(--accent-ink)">Reset</a></div>'; return; }
+  if(state.view==="table") renderTable(list,view); else renderGrid(list,view);
+}
+function renderGrid(list,view){
+  const g=document.createElement("div"); g.className="prodgrid";
+  list.slice(0,120).forEach(p=>{
+    const col=catColor(p.category);
+    const a=document.createElement("a"); a.className="prod"; a.href=p.url; a.target="_blank"; a.rel="noopener";
+    a.innerHTML=`
+      <div class="thumb" style="background:linear-gradient(135deg,${col},color-mix(in srgb,${col} 60%,#000))">
+        ${p.onSale?`<span class="sale-tag">-${p.discountPct}%</span>`:""}
+        ${p.isNew&&!p.onSale?'<span class="new-badge">NEW</span>':""}
+        <span class="mono">${initials(p.title)}</span>
+        ${!p.available?'<div class="oos"><span>Out of stock</span></div>':""}
+      </div>
+      <div class="body">
+        <div class="cat" style="color:${col}">${p.category}</div>
+        <div class="t">${p.title}</div>
+        <div class="meta"><span class="swatch" style="background:${colHex(p.colour)}"></span>${p.colour} · ${p.material}${p.occasion&&p.occasion!=="Everyday"?" · "+p.occasion:""}</div>
+        <div class="price">
+          <span class="now ${p.onSale?'sale':''}">${GBP(p.price)}</span>
+          ${p.onSale?`<span class="was">${GBP(p.compareAt)}</span>`:""}
+        </div>
+      </div>`;
+    g.append(a);
+  });
+  view.innerHTML=""; view.append(g);
+  if(list.length>120){const n=document.createElement("div");n.className="empty";n.textContent=`Showing first 120 of ${list.length}. Narrow with filters to see more.`;view.append(n);}
+}
+function renderTable(list,view){
+  const rows=list.map(p=>`<tr>
+    <td>${p.title}</td><td>${p.category}</td>
+    <td>${p.occasion||"—"}</td>
+    <td><span class="swatch-inline" style="background:${colHex(p.colour)}"></span>${p.colour||"—"}</td>
+    <td>${p.material||"—"}</td>
+    <td class="n">${GBP(p.price)}</td>
+    <td class="n">${p.onSale?GBP(p.compareAt):"—"}</td>
+    <td class="n">${p.onSale?"-"+p.discountPct+"%":"—"}</td>
+    <td>${p.available?'<span style="color:var(--good)">In stock</span>':'<span style="color:var(--bad)">Out</span>'}${p.isNew?' <span style="color:var(--good)">· new</span>':""}</td>
+    </tr>`).join("");
+  view.innerHTML=`<div class="tablewrap"><table class="data">
+    <thead><tr><th>Product</th><th>Category</th><th>Occasion</th><th>Colour</th><th>Material</th><th style="text-align:right">Price</th><th style="text-align:right">Was</th><th style="text-align:right">Disc.</th><th>Stock</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+const initials = t => t.replace(/[^a-zA-Z ]/g,"").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+
+/* ---------------- Tooltip ---------------- */
+const tip=document.getElementById("tip");
+function attachTip(el,html){
+  el.addEventListener("mousemove",e=>{ tip.innerHTML=html; tip.style.opacity="1";
+    let x=e.clientX+14, y=e.clientY+14;
+    if(x+tip.offsetWidth>innerWidth) x=e.clientX-tip.offsetWidth-14;
+    if(y+tip.offsetHeight>innerHeight) y=e.clientY-tip.offsetHeight-14;
+    tip.style.left=x+"px"; tip.style.top=y+"px"; });
+  el.addEventListener("mouseleave",()=>tip.style.opacity="0");
+}
+
+/* ---------------- Theme ---------------- */
+const themeBtn=document.getElementById("themeBtn");
+themeBtn.onclick=()=>{
+  const cur=document.documentElement.getAttribute("data-theme")
+    || (matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
+  const next=cur==="dark"?"light":"dark";
+  document.documentElement.setAttribute("data-theme",next);
+  try{localStorage.setItem("kl-theme",next);}catch(e){}
+  render(); // re-read colours for SVG
+};
+try{const t=localStorage.getItem("kl-theme"); if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}
+document.getElementById("bannerX").onclick=()=>document.getElementById("banner").style.display="none";
+
+/* ---------------- PWA ---------------- */
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{})); }
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+name: Discover data source
+
+# One-off diagnostic: works out how katieloxton.com exposes its product data
+# (structured data, JS state, sitemap, or a headless backend). Manual trigger only.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Probe the site
+        run: node scripts/discover.mjs
+        env:
+          BASE: https://www.katieloxton.com
+          NODE_OPTIONS: --max-http-header-size=262144
