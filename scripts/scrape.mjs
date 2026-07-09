@@ -56,21 +56,30 @@ function ldObjects(html) {
 }
 const typeOf = (o) => [].concat(o["@type"] || []).map(String);
 
-/* ---- category mapping (from breadcrumb top level + name) ---- */
+/* ---- category mapping (from breadcrumb + name) ---- */
+// Promo / merchandising crumbs that aren't real product categories.
+const PROMO_CRUMB = /^(sale|new[\s-]?in|clearance|outlet|last chance|limited availability|offers?|bestsellers?|shop all|view all|black friday|cyber|christmas shop|gifts? under|under £?\d+|up to \d+%|\d+%(\s*off)?)$/i;
 const CATEGORY_MAP = [
   [/pouch/i, "Perfect Pouches"],
   [/purse|wallet|card holder|cardholder|coin/i, "Purses & Wallets"],
-  [/bag|tote|backpack|holdall|clutch|cross.?body|weekend/i, "Bags"],
-  [/necklace|earring|bracelet|jewel|ring|pendant|anklet|charm/i, "Jewellery"],
-  [/home|candle|diffuser|fragrance|wax|hand cream|lotion|dish|frame|storage|mug|ceramic/i, "Home & Fragrance"],
+  [/bag|tote|backpack|holdall|clutch|cross.?body|weekend|luggage/i, "Bags"],
+  [/necklace|earring|bracelet|jewel|ring\b|pendant|anklet|charm/i, "Jewellery"],
+  [/card|stationery|sticker|notebook|note ?book|\bpen\b|wrap|journal|planner|diary|greeting/i, "Stationery"],
+  [/candle|diffuser|fragrance|wax|hand cream|lotion|home|dish|frame|storage|mug|ceramic|decoration|cushion|blanket/i, "Home & Fragrance"],
+  [/scarf|sunglass|keyring|umbrella|hair|passport|hat|glove|belt|accessor/i, "Accessories"],
   [/gift|hamper|pamper|set\b/i, "Gifts"],
-  [/scarf|sunglass|keyring|umbrella|hair|passport|travel|hat|glove|accessor/i, "Accessories"],
 ];
+function cleanCrumbs(crumbs) { return crumbs.filter((c) => c && !PROMO_CRUMB.test(c.trim())); }
 function categorise(name, crumbs) {
-  const top = crumbs[0] || "";
-  const hay = `${top} ${name}`;
+  const clean = cleanCrumbs(crumbs);
+  const hay = `${clean.join(" ")} ${name}`;
   for (const [re, cat] of CATEGORY_MAP) if (re.test(hay)) return cat;
-  return top || "Other";
+  return clean[0] || "Other";
+}
+// Discount depth from a promo breadcrumb like "Sale › 60%".
+function discountFromCrumbs(crumbs) {
+  for (const c of crumbs) { const m = c.match(/(\d{1,2})\s*%/); if (m) { const p = +m[1]; if (p > 0 && p < 100) return p; } }
+  return 0;
 }
 
 /* ---- extra dimensions (best-effort, from name) ---- */
@@ -177,7 +186,10 @@ async function main() {
     const { price: ldPrice, available } = offerPrice(product);
     const { final, old } = pricesFromHtml(r.body);
     const price = final ?? ldPrice ?? 0;
-    const compareAt = old && old > price ? old : 0;
+    // Prefer a real old-price from the page; otherwise derive it from a
+    // "Sale › 60%" style breadcrumb so discount depth still shows.
+    let compareAt = old && old > price ? old : 0;
+    if (!compareAt) { const pct = discountFromCrumbs(crumbs); if (pct) compareAt = Math.round((price / (1 - pct / 100)) * 100) / 100; }
     const image = Array.isArray(product.image) ? product.image[0] : product.image || null;
     products.push({
       title: name,
