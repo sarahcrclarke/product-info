@@ -398,10 +398,34 @@ const RECENCY = [
   {key:"n365", label:"6–12 months", test:d=>d>180&&d<=365},
   {key:"n365p", label:"12 months+", test:d=>d>365},
 ];
-const COLOUR_HEX = {Blush:"#e7b7c0", Sage:"#a9b99a", Tan:"#c69c6d", Black:"#3a3330", Gold:"#c9a24a",
-  Cream:"#ece3d2", Monochrome:"#6b6b6b", Tortoiseshell:"#7a4a24", Navy:"#2f3b52", Pink:"#e39ab0",
-  Silver:"#b8bcc2", White:"#f2efe9", Mixed:"#b9a99c"};
-const colHex = c => COLOUR_HEX[c] || "#b9a99c";
+const COLOUR_HEX = {Black:"#3a3330", White:"#f1eee7", Cream:"#ece3d2", Gold:"#c9a24a", Silver:"#b8bcc2",
+  Pink:"#e39ab0", Blush:"#e7b7c0", Green:"#8aa17a", Sage:"#a9b99a", Blue:"#4f6f9f", Navy:"#2f3b52",
+  "Tan/Brown":"#b07b4f", Tan:"#c69c6d", Grey:"#9a9a9a", Red:"#b23b39", Purple:"#8a6ea8",
+  Multi:"#b9a99c", Other:"#c9bfb6", Mixed:"#b9a99c", Tortoiseshell:"#7a4a24", Monochrome:"#6b6b6b"};
+const colHex = c => COLOUR_HEX[c] || "#c9bfb6";
+// Collapse the raw ~180 colourway strings into a tidy, chartable set.
+function canonicalColour(raw){
+  if(!raw) return "Mixed";
+  const s = String(raw).toLowerCase();
+  if(/rose gold|\bgold\b/.test(s)) return "Gold";
+  if(/silver|metallic|pewter/.test(s)) return "Silver";
+  if(/blush/.test(s)) return "Blush";
+  if(/pink|rose|coral|fuchsia/.test(s)) return "Pink";
+  if(/sage/.test(s)) return "Sage";
+  if(/green|mint|khaki|olive|emerald/.test(s)) return "Green";
+  if(/navy/.test(s)) return "Navy";
+  if(/blue|denim|teal|aqua/.test(s)) return "Blue";
+  if(/tan|brown|camel|taupe|chocolate|coffee|caramel|mocha|biscuit/.test(s)) return "Tan/Brown";
+  if(/black|charcoal|\bjet\b|onyx/.test(s)) return "Black";
+  if(/cream|ivory|off.?white|natural|oat|stone|sand|nude|beige/.test(s)) return "Cream";
+  if(/white/.test(s)) return "White";
+  if(/grey|gray|silver grey/.test(s)) return "Grey";
+  if(/red|burgundy|wine|cherry/.test(s)) return "Red";
+  if(/lilac|purple|lavender|plum|mauve|violet/.test(s)) return "Purple";
+  if(/multi|rainbow|print|floral|leopard|animal|stripe|spot|tartan|check/.test(s)) return "Multi";
+  if(/ & | and |,|\//.test(String(raw))) return "Multi";
+  return "Other";
+}
 const GBP = n => "£"+n.toFixed(2);
 const GBP0 = n => "£"+Math.round(n);
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -422,7 +446,7 @@ function normalise(raw){
            compareAt:+(p.compareAt||0), available:p.available!==false,
            handle:p.handle||slug(p.title), url:p.url||("https://www.katieloxton.com/products/"+(p.handle||slug(p.title))),
            image:p.image||null, tags:p.tags||[],
-           brand:p.brand||"Katie Loxton", colour:p.colour||"Mixed",
+           brand:p.brand||"Katie Loxton", colour:canonicalColour(p.colour),
            occasion:p.occasion||"Everyday", material:p.material||"Mixed", createdAt:p.createdAt||null};
     }
     o.brand = o.brand||"Katie Loxton"; o.colour=o.colour||"Mixed";
@@ -480,6 +504,7 @@ function setupFilters(){
   fill("fOccasion",DATA.occasions); fill("fColour",DATA.colours); fill("fMaterial",DATA.materials);
   if(DATA.brands.length>1){ $("brandField").hidden=false; fill("fBrand",DATA.brands);
     $("fBrand").addEventListener("change",e=>{state.brand=e.target.value; render();}); }
+  if(!DATA.hasDates){ const nl=$("fNew").closest("label"); if(nl) nl.style.display="none"; }
   $("q").addEventListener("input",e=>{state.q=e.target.value.trim().toLowerCase(); render();});
   const bind=(id,key)=>$(id).addEventListener("change",e=>{state[key]=e.target.value; render();});
   bind("fCat","cat"); bind("fBracket","bracket"); bind("fOccasion","occasion");
