@@ -1,0 +1,46 @@
+name: Refresh product data
+
+# Runs the public-catalogue scraper on GitHub's own runners (which have open
+# internet), then commits data/products.json back to the repo. The dashboard
+# picks it up automatically. Trigger it by hand from the Actions tab, or let it
+# refresh weekly.
+
+on:
+  workflow_dispatch:      # "Run workflow" button in the Actions tab
+  schedule:
+    - cron: "17 6 * * 1"  # every Monday 06:17 UTC
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: true
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Scrape the public catalogue
+        run: node scripts/scrape.mjs
+        env:
+          BASE: https://www.katieloxton.com
+
+      - name: Commit refreshed data (if changed)
+        run: |
+          if [[ -n "$(git status --porcelain data/products.json)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/products.json
+            git commit -m "Refresh product data ($(date -u +%Y-%m-%d))"
+            git push
+            echo "### ✅ Catalogue refreshed" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ℹ️ No changes since last run" >> "$GITHUB_STEP_SUMMARY"
+          fi
